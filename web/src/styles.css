@@ -220,7 +220,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .hcard + .hcard { margin-left: calc(var(--cw) * -.28) }
 .hcard.ok { --lift: -12px }
 .hcard.ok:hover { --lift: -22px; z-index: 2 }
-.hcard.no .card { filter: saturate(.45) brightness(.62) }
+.hcard.no .card { filter: saturate(.75) brightness(.78) }
 .hcard.dealt { animation: deal .45s cubic-bezier(.2, 1.1, .4, 1) backwards }
 @keyframes deal { from { transform: translate(0, -160px) rotate(-25deg) scale(.6); opacity: 0 } }
 .mine-label { text-align: center; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700 }
@@ -293,4 +293,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
   .hcard + .hcard { margin-left: calc(var(--cw) * -.5) }
   .hcard.ok { --lift: -10px }
 }
+/* у страницы одна тёмная тема при любой настройке телефона */
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
