@@ -1,0 +1,30 @@
+# Служба игрового сервера. Ставится сама скриптом deploy/update.sh,
+# @ROOT@ он заменяет на папку проекта. Руками копировать не нужно.
+[Unit]
+Description=Chetyre tsveta game server (uno.brayan-train.ru)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Отдельный системный пользователь создаётся на время работы службы: заводить его не нужно.
+DynamicUser=yes
+Environment=HTTP_ADDR=127.0.0.1:8095
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/bin/uno-server
+Restart=always
+RestartSec=3
+
+# Серверу нужны только свой бинарник и сеть.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

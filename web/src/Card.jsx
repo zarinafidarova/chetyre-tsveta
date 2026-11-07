@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react'
+
 export const COLOR_NAME = { r: 'красный', y: 'жёлтый', g: 'зелёный', b: 'синий' }
 
 /* ---------- иконки особых карт (SVG, рисуются цветом текста) ---------- */
@@ -71,6 +73,25 @@ export function cardLabel(card) {
   return `${COLOR_NAME[card.c]} ${v}`
 }
 
+/* ---------- картинки для карт ----------
+   Положите файлы в web/public/cards/: blue.png, red.png, yellow.png, green.png, wild.png.
+   Карта цвета, для которого картинка нашлась, рисуется с ней; для остальных
+   остаётся прежний рисунок. Проверяем каждый файл один раз при загрузке. */
+
+const ART_FILE = { b: 'blue', r: 'red', y: 'yellow', g: 'green', w: 'wild' }
+const artStatus = {}
+const artListeners = new Set()
+for (const [c, name] of Object.entries(ART_FILE)) {
+  const img = new Image()
+  img.onload = () => { artStatus[c] = `/cards/${name}.png`; artListeners.forEach((f) => f()) }
+  img.onerror = () => { artStatus[c] = null; artListeners.forEach((f) => f()) }
+  img.src = `/cards/${name}.png`
+}
+const subscribeArt = (f) => { artListeners.add(f); return () => artListeners.delete(f) }
+function useArt(color) {
+  return useSyncExternalStore(subscribeArt, () => artStatus[color] ?? null)
+}
+
 /* ---------- карта ---------- */
 
 export function Card({ card, className = '', style }) {
@@ -79,6 +100,22 @@ export function Card({ card, className = '', style }) {
   const u = card.v === '6' || card.v === '9' ? ' u' : '' // 6 и 9 подчёркнуты, чтобы не путать вверх ногами
   const corner = card.v === 'D' || card.v === 'F' ? SHORT[card.v] : isNum ? card.v : null
   const kind = card.c === 'w' ? 'wild' : `c-${card.c}`
+  const art = useArt(card.c)
+
+  if (art) {
+    return (
+      <div className={`card art ${kind} ${className}`} style={style}>
+        <span className="art-win"><img src={art} alt="" draggable="false" /></span>
+        <span className="pill">
+          {isNum ? <span className={u.trim()}>{card.v}</span> : card.v === 'D' || card.v === 'F' ? SHORT[card.v] : <Icon />}
+        </span>
+        {['tl', 'br'].map((pos) => (
+          <span key={pos} className={`corner ${pos}${u}`}>{corner ?? <Icon />}</span>
+        ))}
+        <span className="shine" />
+      </div>
+    )
+  }
 
   return (
     <div className={`card ${kind} ${isNum ? 'num' : 'act'} ${className}`} style={style}>

@@ -3,6 +3,8 @@
 Сетевая карточная игра по правилам, знакомым по УНО, на 2–10 человек.
 Фронтенд на React (Vite), бэкенд на Go, связь через WebSocket.
 
+Сайт: https://uno.brayan-train.ru
+
 ## Как устроено
 
 ```
@@ -45,21 +47,45 @@ go run .                 # бэкенд на :8080
 cd web && npm run dev    # фронтенд на :5173 с горячей перезагрузкой, /ws проксируется на :8080
 ```
 
-## Как сыграть с друзьями
+## Первый запуск на сервере
 
-Сервер должен быть доступен друзьям из интернета. Варианты:
-
-1. **Быстро, с вашего компьютера.** Запустите `go run .` и откройте туннель, например
-   `cloudflared tunnel --url http://localhost:8080` или `ngrok http 8080`. Отправьте друзьям выданный адрес.
-2. **Постоянно.** Задеплойте Docker-образ из этого репозитория на любой хостинг с поддержкой WebSocket
-   (Render, Railway, Fly.io, VPS). Сервер читает порт из переменной `PORT`.
+Нужны git, Go 1.22+, Node.js 18+ и nginx. Проверить: `go version`, `node -v`.
 
 ```bash
-docker build -t chetyre-tsveta .
-docker run -p 8080:8080 chetyre-tsveta
+# 1. Код (для приватного репозитория добавь серверу deploy key на GitHub)
+git clone git@github.com:zarinafidarova/chetyre-tsveta.git /var/www/chetyre-tsveta
+
+# 2. Сборка и запуск игрового сервера (служба uno ставится сама)
+bash /var/www/chetyre-tsveta/deploy/update.sh
+
+# 3. nginx
+cp /var/www/chetyre-tsveta/deploy/nginx/uno.brayan-train.ru.conf /etc/nginx/sites-available/
+ln -s /etc/nginx/sites-available/uno.brayan-train.ru.conf /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
+# 4. HTTPS
+certbot --nginx -d uno.brayan-train.ru
 ```
 
-Дальше: создайте стол, нажмите «Копировать» и отправьте ссылку. Можно добавить ботов, если людей мало.
+Если на сервере нет `sites-available`, положи конфиг в `/etc/nginx/conf.d/` вместо шагов с `cp` и `ln`.
+
+Где что живёт на сервере:
+
+- `/var/www/chetyre-tsveta/web/dist` — собранный фронт, его отдаёт nginx;
+- `/var/www/chetyre-tsveta/bin/uno-server` — игровой сервер, слушает `127.0.0.1:8095`;
+- служба `uno`: `systemctl status uno`, логи `journalctl -u uno -f`.
+
+## Обновление
+
+Запушь изменения в `main`, потом на сервере:
+
+```bash
+bash /var/www/chetyre-tsveta/deploy/update.sh
+```
+
+Скрипт сам подтянет код, соберёт фронт и сервер и перезапустит службу. Столы хранятся в памяти,
+поэтому перезапуск обрывает идущие партии; если менялся только фронт, сервер не перезапускается.
+Если новая версия сервера не поднялась, скрипт вернёт прошлую.
 
 ## Протокол
 
