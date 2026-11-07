@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log"
 	mrand "math/rand/v2"
 	"strings"
@@ -321,6 +322,8 @@ func (c *Client) handle(m inMsg) {
 			err = errNotHost
 		} else if cur := r.current(); cur == nil || cur == p {
 			err = errNotPlaying
+		} else if time.Since(r.turnAt) < skipAfter-2*time.Second {
+			err = errors.New("Пропустить ход можно, если игрок молчит больше минуты")
 		} else {
 			err = r.pass(cur, "skip")
 		}
@@ -451,6 +454,7 @@ type View struct {
 	Dir       int          `json:"dir"`
 	Drew      bool         `json:"drew"`
 	DrawCount int          `json:"drawCount"`
+	TurnIdle  int64        `json:"turnIdle"` // сколько мс текущий игрок ничего не делает
 	Log       []LogEntry   `json:"log"`
 	Winner    string       `json:"winner"`
 	Round     int          `json:"round"`
@@ -479,6 +483,7 @@ func (r *Room) view(me *Player) View {
 		}
 		if cur := r.current(); cur != nil {
 			v.Turn = cur.ID
+			v.TurnIdle = time.Since(r.turnAt).Milliseconds()
 		}
 	}
 	for _, p := range r.players {

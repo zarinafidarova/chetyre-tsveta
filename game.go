@@ -79,6 +79,7 @@ type Room struct {
 	lastSeen time.Time
 	closed   bool
 	chat     []ChatMsg
+	turnAt   time.Time // когда текущий игрок получил ход или последний раз что-то сделал
 	chatSeq  int
 }
 
@@ -89,6 +90,12 @@ var (
 )
 
 const maxPlayers = 10
+
+// Через столько молчания текущего игрока хозяин стола может пропустить его ход.
+const skipAfter = 60 * time.Second
+
+// touch отмечает, что текущий игрок только что получил ход или сделал действие.
+func (r *Room) touch() { r.turnAt = time.Now() }
 
 func cleanName(s string) string {
 	s = strings.TrimSpace(s)
@@ -203,6 +210,7 @@ func (r *Room) startRound() error {
 	r.winner = ""
 	r.log = nil
 	r.Status = "playing"
+	r.touch()
 	r.addLog(LogEntry{K: "start"})
 	return nil
 }
@@ -278,6 +286,7 @@ func (r *Room) play(p *Player, cardID int, color string, last bool) error {
 	}
 	r.turn = r.idxAt(adv)
 	r.drew = false
+	r.touch()
 	return nil
 }
 
@@ -300,6 +309,7 @@ func (r *Room) drawCard(p *Player) error {
 	}
 	p.Hand = append(p.Hand, r.drawFrom(1)...)
 	r.drew = true
+	r.touch()
 	r.addLog(LogEntry{K: "draw", Who: p.Name})
 	return nil
 }
@@ -314,6 +324,7 @@ func (r *Room) pass(p *Player, kind string) error {
 	r.addLog(LogEntry{K: kind, Who: r.current().Name})
 	r.turn = r.idxAt(1)
 	r.drew = false
+	r.touch()
 	return nil
 }
 
@@ -344,6 +355,7 @@ func (r *Room) removePlayer(p *Player) {
 					r.turn = (i - 1 + n) % n
 				}
 				r.drew = false
+				r.touch()
 			}
 		}
 		break

@@ -4,6 +4,8 @@ import { Card, CardBack, Chip, COLOR_NAME, cardLabel } from './Card.jsx'
 import { ChatPanel } from './Chat.jsx'
 
 const COLOR_VAR = { r: 'var(--red)', y: 'var(--yellow)', g: 'var(--green)', b: 'var(--blue)' }
+// Через сколько молчания игрока хозяину стола показывается «Пропустить ход» (как на сервере).
+const SKIP_AFTER_MS = 60_000
 const SEAT_COLORS = ['#ff8f6b', '#7bd389', '#7aa7ff', '#f7a8ff', '#ffd36b', '#6be0e0', '#c3a6ff', '#ffb3c1', '#b5e48c', '#90caf9']
 
 function plural(n, one, few, many) {
@@ -273,6 +275,19 @@ function Table({ view, chat, send }) {
   const waiting = view.players.filter((p) => !p.inRound)
   const cur = byId[view.turn]
   const isHost = view.host === me
+
+  // Сколько текущий игрок молчит. Сервер присылает это в мс на момент отправки,
+  // дальше досчитываем сами: так не важно, что часы телефона и сервера расходятся.
+  const receivedAt = useMemo(() => Date.now(), [view])
+  const [now, setNow] = useState(() => Date.now())
+  const waitingOther = view.status === 'playing' && !myTurn
+  useEffect(() => {
+    if (!waitingOther) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [waitingOther])
+  const idle = (view.turnIdle || 0) + Math.max(0, now - receivedAt)
+  const stuck = waitingOther && idle >= SKIP_AFTER_MS
   const pickCard = hand.find((c) => c.id === picking)
 
   let hint = ' '
@@ -338,7 +353,7 @@ function Table({ view, chat, send }) {
       {view.status === 'playing' && (
         myTurn
           ? <><div className="status mine">Ваш ход</div><p className="hint">{hint}</p></>
-          : <><div className="status">Ходит {cur?.name ?? '…'}</div><p className="hint">{cur && !cur.online ? 'Игрок не в сети. Хозяин стола может пропустить его ход.' : ' '}</p></>
+          : <><div className="status">Ходит {cur?.name ?? '…'}</div><p className="hint">{stuck ? `${cur?.online ? 'Не отвечает' : 'Не в сети'} больше минуты. ${isHost ? 'Можно пропустить этот ход.' : 'Хозяин стола может пропустить этот ход.'}` : cur && !cur.online ? 'Игрок не в сети' : ' '}</p></>
       )}
 
       <div className="log" aria-live="polite">
@@ -352,7 +367,7 @@ function Table({ view, chat, send }) {
           </button>
         )}
         {myTurn && view.drew && <button className="btn" onClick={() => send({ t: 'pass' })}>Пас</button>}
-        {isHost && view.status === 'playing' && !myTurn && cur && (
+        {isHost && stuck && cur && (
           <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
         )}
       </div>
