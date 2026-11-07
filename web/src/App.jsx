@@ -66,15 +66,9 @@ function Home({ connected, send }) {
   return (
     <>
       <header className="brand">
-        <div className="fan" aria-hidden="true">
-          {[{ c: 'r', v: '7' }, { c: 'y', v: 'S' }, { c: 'g', v: '2' }, { c: 'w', v: 'F' }].map((c, i) => (
-            <Card key={i} card={c} style={{ transform: `rotate(${-27 + i * 18}deg)` }} />
-          ))}
-        </div>
         <div>
-          <h1>Четыре цвета</h1>
+          <h1>УНОС</h1>
           <p>Карточная игра на 2–10 человек. Кладите карту того же цвета или значения и первым избавьтесь от всех карт.</p>
-          <p className="credit">Рисунки на картах: @TheCuriousCatt</p>
         </div>
       </header>
 
@@ -104,7 +98,7 @@ function Home({ connected, send }) {
             <li><b>+2</b> и <b>+4</b>: следующий берёт карты и пропускает ход.</li>
             <li><b>✦</b> и <b>+4</b> кладутся на что угодно, вы выбираете цвет.</li>
             <li>Нечем ходить? Возьмите карту из колоды, затем сыграйте или спасуйте.</li>
-            <li>Оставляя одну карту, нажмите <b>«Последняя карта!»</b>, иначе штраф +2.</li>
+            <li>Оставляя одну карту, нажмите <b>«УНОС»</b>, иначе штраф +2.</li>
           </ul>
         </section>
       </div>
@@ -187,8 +181,8 @@ function logText(e) {
     case 'blocked': return <>{n} пропускает ход</>
     case 'rev': return <>Направление игры сменилось</>
     case 'hit': return <>{n} берёт {e.n} {plural(e.n, 'карту', 'карты', 'карт')} и пропускает ход</>
-    case 'pen': return <>{n} забывает сказать «Последняя!» и берёт 2 штрафные</>
-    case 'last': return <>{n}: «Последняя карта!»</>
+    case 'pen': return <>{n} забывает сказать «УНОС» и берёт 2 штрафные</>
+    case 'last': return <>{n}: «УНОС!»</>
     case 'win': return <>{n} выигрывает партию</>
     case 'left': return <>{n} встаёт из-за стола</>
     default: return null
@@ -254,7 +248,7 @@ function Table({ view, chat, send }) {
     return [...view.hand].sort((a, b) => o.indexOf(a.c) - o.indexOf(b.c) || a.v.localeCompare(b.v))
   }, [view.hand])
 
-  // сбрасываем «Последняя!» и выбор цвета, когда ход ушёл
+  // сбрасываем «УНОС» и выбор цвета, когда ход ушёл
   useEffect(() => { if (!myTurn) { setCalling(false); setPicking(null) } }, [myTurn])
 
   // анимация новой карты сброса (не при первом показе стола)
@@ -305,7 +299,7 @@ function Table({ view, chat, send }) {
               <span>{p.count} {plural(p.count, 'карта', 'карты', 'карт')}</span>
             </div>
             {!p.online && <span className="tag">не в сети</span>}
-            {p.count === 1 && <span className="flag">Последняя!</span>}
+            {p.count === 1 && <span className="flag">УНОС!</span>}
           </div>
         ))}
       </div>
@@ -354,7 +348,7 @@ function Table({ view, chat, send }) {
       <div className="actions">
         {myTurn && hand.length === 2 && anyPlayable && (
           <button className="btn call" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
-            {calling ? '«Последняя!» сказано' : 'Последняя карта!'}
+            {calling ? '«УНОС» сказано' : 'УНОС'}
           </button>
         )}
         {myTurn && view.drew && <button className="btn" onClick={() => send({ t: 'pass' })}>Пас</button>}

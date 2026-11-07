@@ -53,11 +53,8 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 
 /* главный экран */
 .brand { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 8px 0 22px }
-.fan { position: relative; width: 104px; height: 90px; flex: none }
-.fan .card { position: absolute; left: 30px; top: 4px; --cw: 46px; transform-origin: 50% 125% }
 .brand h1 { font-family: var(--display); font-weight: 900; font-size: clamp(30px, 7vw, 46px); line-height: 1; margin: 0; letter-spacing: -.02em; text-wrap: balance }
 .brand p { margin-top: 8px; color: var(--muted); max-width: 46ch }
-.brand .credit { margin-top: 4px; font-size: 12px; opacity: .8 }
 .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px }
 @media (max-width: 720px) { .grid { grid-template-columns: 1fr } }
 .panel { background: rgba(20, 18, 42, .72); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0 }
@@ -75,7 +72,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .card {
   --c: var(--blue); --d: var(--blue-d); --t: #fff;
   width: var(--cw); height: calc(var(--cw) * 1.45); border-radius: calc(var(--cw) * .14);
-  background: linear-gradient(160deg, var(--c) 0%, var(--c) 35%, var(--d) 100%);
+  background: var(--c);
   box-shadow: inset 0 0 0 calc(var(--cw) * .045) #fff, inset 0 0 0 calc(var(--cw) * .06) rgba(0,0,0,.15), 0 calc(var(--cw) * .06) calc(var(--cw) * .16) rgba(0,0,0,.4);
   position: relative; color: var(--t); flex: none; user-select: none; overflow: hidden; isolation: isolate;
 }
@@ -83,13 +80,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .c-y { --c: var(--yellow); --d: var(--yellow-d); --t: var(--card-ink) }
 .c-g { --c: var(--green); --d: var(--green-d) }
 .c-b { --c: var(--blue); --d: var(--blue-d) }
-
-/* у каждого цвета свой узор: красный — зигзаг, жёлтый — лучи, зелёный — крапинка, синий — волны */
-.card .pattern { position: absolute; inset: calc(var(--cw) * .06); border-radius: calc(var(--cw) * .1); z-index: -1; opacity: .2 }
-.c-r .pattern { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M0 7.5 3.5 1.5 7 7.5 10.5 1.5 14 7.5' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E") 0 0 / 14px 9px }
-.c-y .pattern { background: repeating-conic-gradient(from 0deg at 50% 50%, #fff 0 4deg, transparent 4deg 14deg); opacity: .22 }
-.c-g .pattern { background: radial-gradient(circle, #fff 1.3px, transparent 1.8px) 0 0 / 8px 8px, radial-gradient(circle, #fff 1.3px, transparent 1.8px) 4px 4px / 8px 8px; opacity: .22 }
-.c-b .pattern { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpath d='M0 5Q5 0 10 5T20 5' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E") 0 0 / 20px 10px }
 
 /* центральное окно-арка */
 .card .window {
@@ -118,14 +108,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .card .br { right: calc(var(--cw) * .11); bottom: calc(var(--cw) * .1); transform: rotate(180deg) }
 
 /* «дикие» карты: тёмная карта со звёздной крошкой и радужной вращающейся рамкой окна */
-.card.wild {
-  --d: #0e0c22; --t: #fff;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(232,71,79,.5) 0 1px, transparent 1.5px) 0 0 / 11px 13px,
-    radial-gradient(circle at 70% 60%, rgba(246,195,59,.5) 0 1px, transparent 1.5px) 0 0 / 13px 11px,
-    radial-gradient(circle at 40% 80%, rgba(59,120,227,.6) 0 1px, transparent 1.5px) 0 0 / 9px 12px,
-    radial-gradient(120% 90% at 50% 20%, #332d6e, #15122c);
-}
+.card.wild { --c: #1d2557; --d: #0e0c22; --t: #fff; background: var(--c) }
 .card.wild .window {
   border: calc(var(--cw) * .045) solid transparent;
   background: linear-gradient(#1a1636, #1a1636) padding-box,
@@ -137,27 +120,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .card.wild .badge { background: var(--gold); color: var(--card-ink) }
 .card.wild .corner .ico { width: calc(var(--cw) * .18); height: calc(var(--cw) * .18) }
 @keyframes spin { to { --spin: 360deg } }
-
-/* карты с картинкой из web/public/cards: однотонный фон, фигурка без фона прямо на цвете карты */
-.card.art { background: var(--c) }
-.card.art.wild { --c: #1d2557; --d: #1d2557; background: var(--c) }
-.card .art-win { position: absolute; inset: 13% 4% 22%; display: grid; place-items: center }
-.card .art-win img {
-  width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none;
-  filter: drop-shadow(0 calc(var(--cw) * .025) calc(var(--cw) * .03) rgba(0,0,0,.3));
-}
-.card .pill {
-  position: absolute; left: 50%; bottom: 6.5%; transform: translateX(-50%); z-index: 1;
-  min-width: calc(var(--cw) * .36); height: calc(var(--cw) * .24); padding: 0 calc(var(--cw) * .05);
-  border-radius: 999px; background: #fff; color: var(--d); display: grid; place-items: center;
-  font-family: var(--display); font-weight: 900; font-size: calc(var(--cw) * .15); line-height: 1;
-  box-shadow: 0 calc(var(--cw) * .02) calc(var(--cw) * .06) rgba(0,0,0,.25);
-}
-.card .pill .ico { width: calc(var(--cw) * .17); height: calc(var(--cw) * .17); color: var(--d); filter: none }
-.card.art .corner { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.25) }
-.card.art.c-y .corner { color: var(--card-ink); text-shadow: none }
-.card.art .tl { top: calc(var(--cw) * .07) }
-.card.art .br { bottom: calc(var(--cw) * .07) }
 
 /* блик, который скользит за курсором */
 .card .shine {
@@ -323,4 +285,12 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .toast, .offline { position: fixed; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 32px); border-radius: 12px; font-weight: 700; padding: 10px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.4) }
 .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--paper); color: var(--card-ink) }
 .offline { top: calc(12px + env(safe-area-inset-top, 0px)); background: var(--red); color: #fff }
+/* телефон: карты крупнее, в руке плотнее внахлёст */
+@media (max-width: 600px) {
+  :root { --cw: 22vw }
+  .center { --cw: 25vw }
+  .hand { padding-inline: 2px }
+  .hcard + .hcard { margin-left: calc(var(--cw) * -.5) }
+  .hcard.ok { --lift: -10px }
+}
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
