@@ -454,7 +454,8 @@ type View struct {
 	Dir       int          `json:"dir"`
 	Drew      bool         `json:"drew"`
 	DrawCount int          `json:"drawCount"`
-	TurnIdle  int64        `json:"turnIdle"` // сколько мс текущий игрок ничего не делает
+	TurnIdle  int64        `json:"turnIdle"`
+	LastBy    string       `json:"lastBy"` // кто положил верхнюю карту // сколько мс текущий игрок ничего не делает
 	Log       []LogEntry   `json:"log"`
 	Winner    string       `json:"winner"`
 	Round     int          `json:"round"`
@@ -480,6 +481,7 @@ func (r *Room) view(me *Player) View {
 				from = 0
 			}
 			v.Recent = r.discard[from:]
+			v.LastBy = r.lastBy
 		}
 		if cur := r.current(); cur != nil {
 			v.Turn = cur.ID

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGame } from './useGame.js'
-import { Card, CardBack, Chip, COLOR_NAME, cardLabel } from './Card.jsx'
+import { Card, CardBack, COLOR_NAME, cardLabel } from './Card.jsx'
 import { ChatPanel } from './Chat.jsx'
 
 const COLOR_VAR = { r: 'var(--red)', y: 'var(--yellow)', g: 'var(--green)', b: 'var(--blue)' }
@@ -172,22 +172,22 @@ function TopBar({ view, send }) {
 
 /* ---------------- Игровой стол ---------------- */
 
-function logText(e) {
-  const n = e.who ? <b>{e.who}</b> : null
+// Последнее событие словами — только для экранных читалок; на экране события показывает анимация.
+function eventText(e) {
+  const n = e.who || ''
   switch (e.k) {
-    case 'start': return <>Раздано по 7 карт. Поехали!</>
-    case 'play': return <>{n} кладёт <Chip card={e.card} />{e.col && <> и выбирает {COLOR_NAME[e.col]} цвет</>}</>
-    case 'draw': return <>{n} берёт карту из колоды</>
-    case 'pass': return <>{n} пасует</>
-    case 'skip': return <>{n} пропускает ход по решению хозяина стола</>
-    case 'blocked': return <>{n} пропускает ход</>
-    case 'rev': return <>Направление игры сменилось</>
-    case 'hit': return <>{n} берёт {e.n} {plural(e.n, 'карту', 'карты', 'карт')} и пропускает ход</>
-    case 'pen': return <>{n} забывает сказать «УНОС» и берёт 2 штрафные</>
-    case 'last': return <>{n}: «УНОС!»</>
-    case 'win': return <>{n} выигрывает партию</>
-    case 'left': return <>{n} встаёт из-за стола</>
-    default: return null
+    case 'start': return 'Раздано по 7 карт'
+    case 'play': return `${n} кладёт ${cardLabel(e.card)}${e.col ? `, цвет ${COLOR_NAME[e.col]}` : ''}`
+    case 'draw': return `${n} берёт карту`
+    case 'pass': return `${n} пасует`
+    case 'skip': case 'blocked': return `${n} пропускает ход`
+    case 'rev': return 'Направление сменилось'
+    case 'hit': return `${n} берёт ${e.n} и пропускает ход`
+    case 'pen': return `${n} берёт 2 штрафные`
+    case 'last': return `${n}: УНОС!`
+    case 'win': return `${n} выигрывает`
+    case 'left': return `${n} встаёт из-за стола`
+    default: return ''
   }
 }
 
@@ -204,6 +204,51 @@ function useBubbles(chat) {
   return bubbles
 }
 
+// Всплывающие метки над игроками: «+2», «Пропуск», «УНОС!», «Штраф +2».
+// Берутся из изменения числа карт и из новых записей журнала сервера.
+function useFloats(view, me) {
+  const [floats, setFloats] = useState([])
+  const [revKey, setRevKey] = useState(0)
+  const prev = useRef(null)
+  useEffect(() => {
+    const counts = Object.fromEntries(view.players.map((p) => [p.id, p.id === me ? view.hand.length : p.count]))
+    const names = Object.fromEntries(view.players.map((p) => [p.name, p.id]))
+    const old = prev.current
+    prev.current = { counts, log: view.log, round: view.round }
+    if (!old || old.round !== view.round || view.status !== 'playing') return
+
+    const head = old.log[0] && JSON.stringify(old.log[0])
+    const idx = head ? view.log.findIndex((e) => JSON.stringify(e) === head) : -1
+    const fresh = idx > 0 ? view.log.slice(0, idx) : []
+    const add = []
+    const penalized = new Set()
+    for (const e of fresh) {
+      const id = names[e.who]
+      if (e.k === 'blocked' && id) add.push({ id, text: 'Пропуск', kind: 'skip' })
+      if (e.k === 'skip' && id) add.push({ id, text: 'Пропуск', kind: 'skip' })
+      if (e.k === 'last' && id) add.push({ id, text: 'УНОС!', kind: 'unos' })
+      if (e.k === 'pen' && id) { add.push({ id, text: 'Штраф +2', kind: 'plus' }); penalized.add(id) }
+      if (e.k === 'rev') setRevKey((k) => k + 1)
+    }
+    for (const [id, n] of Object.entries(counts)) {
+      const d = n - (old.counts[id] ?? n)
+      if (d > 0 && !penalized.has(id)) add.push({ id, text: `+${d}`, kind: 'plus' })
+    }
+    if (!add.length) return
+    const stamped = add.map((f, i) => ({ ...f, key: `${Date.now()}-${i}` }))
+    setFloats((fs) => [...fs, ...stamped])
+    const t = setTimeout(() => setFloats((fs) => fs.filter((f) => !stamped.includes(f))), 1600)
+    return () => clearTimeout(t)
+  }, [view, me])
+  return { floats, revKey }
+}
+
+function Floats({ list }) {
+  return list.map((f, i) => (
+    <span key={f.key} className={`float ${f.kind}`} style={{ '--i': i }}>{f.text}</span>
+  ))
+}
+
 // Новые карты в руке «прилетают» из колоды; при раздаче — по очереди.
 function useDealDelays(hand) {
   const known = useRef(new Set())
@@ -216,6 +261,7 @@ function useDealDelays(hand) {
 
 // Лёгкий наклон карты за курсором.
 function tilt(e) {
+  if (e.pointerType !== 'mouse') return
   const el = e.currentTarget
   const r = el.getBoundingClientRect()
   const x = (e.clientX - r.left) / r.width - 0.5
@@ -234,15 +280,34 @@ function untilt(e) {
 // Детерминированный «случайный» поворот карты в стопке сброса.
 const scatter = (id) => ({ rot: ((id * 47) % 31) - 15, dx: ((id * 13) % 9) - 4, dy: ((id * 29) % 7) - 3 })
 
+// Конфетти для победителя: чистый CSS, 36 полосок.
+const CONFETTI = Array.from({ length: 36 }, (_, i) => ({
+  left: (i * 37) % 100, delay: ((i * 53) % 90) / 100, dur: 1.6 + ((i * 29) % 10) / 10,
+  color: ['var(--red)', 'var(--yellow)', 'var(--green)', 'var(--blue)', 'var(--gold)'][i % 5], rot: (i * 71) % 360,
+}))
+function Confetti() {
+  return (
+    <div className="confetti" aria-hidden="true">
+      {CONFETTI.map((c, i) => (
+        <i key={i} style={{ left: `${c.left}%`, background: c.color, animationDelay: `${c.delay}s`, animationDuration: `${c.dur}s`, '--r': `${c.rot}deg` }} />
+      ))}
+    </div>
+  )
+}
+
+const WARN_AFTER_MS = 10_000
+
 function Table({ view, chat, send }) {
   const bubbles = useBubbles(chat)
+  const { floats, revKey } = useFloats(view, view.you)
   const [calling, setCalling] = useState(false)
   const [picking, setPicking] = useState(null) // id «дикой» карты, для которой выбираем цвет
 
   const me = view.you
   const byId = useMemo(() => Object.fromEntries(view.players.map((p, i) => [p.id, { ...p, color: SEAT_COLORS[i % SEAT_COLORS.length] }])), [view.players])
   const seated = view.order.includes(me)
-  const myTurn = view.status === 'playing' && view.turn === me
+  const playing = view.status === 'playing'
+  const myTurn = playing && view.turn === me
   const playable = new Set(view.playable)
   const anyPlayable = playable.size > 0
   const hand = useMemo(() => {
@@ -253,11 +318,25 @@ function Table({ view, chat, send }) {
   // сбрасываем «УНОС» и выбор цвета, когда ход ушёл
   useEffect(() => { if (!myTurn) { setCalling(false); setPicking(null) } }, [myTurn])
 
-  // анимация новой карты сброса (не при первом показе стола)
-  const topKey = view.top ? view.top.id : null
-  const firstTop = useRef(topKey)
-  const animateTop = topKey !== firstTop.current
   const delays = useDealDelays(hand)
+
+  // Сыгранная карта прилетает в сброс от того, кто её положил.
+  const topKey = view.top ? view.top.id : null
+  const heapRef = useRef(null)
+  const handRef = useRef(null)
+  const seatRefs = useRef({})
+  const prevTop = useRef(topKey)
+  const [fly, setFly] = useState(null)
+  useLayoutEffect(() => {
+    if (prevTop.current === topKey) return
+    prevTop.current = topKey
+    const heap = heapRef.current
+    const src = view.lastBy === me ? handRef.current : seatRefs.current[view.lastBy]
+    if (!heap || !src) { setFly({ id: topKey, kind: 'land' }); return }
+    const a = src.getBoundingClientRect()
+    const b = heap.getBoundingClientRect()
+    setFly({ id: topKey, kind: 'fly', fx: a.left + a.width / 2 - (b.left + b.width / 2), fy: a.top + a.height / 2 - (b.top + b.height / 2) })
+  }, [topKey, view.lastBy, me])
 
   const playCard = (card, color) => {
     send({ t: 'play', card: card.id, color: color || '', last: calling })
@@ -280,21 +359,23 @@ function Table({ view, chat, send }) {
   // дальше досчитываем сами: так не важно, что часы телефона и сервера расходятся.
   const receivedAt = useMemo(() => Date.now(), [view])
   const [now, setNow] = useState(() => Date.now())
-  const waitingOther = view.status === 'playing' && !myTurn
   useEffect(() => {
-    if (!waitingOther) return
+    if (!playing) return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
-  }, [waitingOther])
+  }, [playing])
   const idle = (view.turnIdle || 0) + Math.max(0, now - receivedAt)
-  const stuck = waitingOther && idle >= SKIP_AFTER_MS
+  const stuck = playing && !myTurn && idle >= SKIP_AFTER_MS
+  const warn = myTurn && idle >= WARN_AFTER_MS
   const pickCard = hand.find((c) => c.id === picking)
 
-  let hint = ' '
-  if (myTurn) {
-    if (view.drew) hint = anyPlayable ? 'Сыграйте подходящую карту или спасуйте.' : 'Подходящей карты нет, нажмите «Пас».'
-    else hint = anyPlayable ? 'Кладите карту того же цвета или значения.' : 'Ходить нечем: возьмите карту из колоды.'
-  }
+  // подсказка появляется, только если игрок задумался на своём ходу
+  let warning = null
+  if (warn && !anyPlayable && !view.drew) warning = 'Подходящих карт нет: возьмите карту из колоды'
+  else if (warn && !anyPlayable && view.drew) warning = 'Подходящей карты нет: нажмите «Пас»'
+  else if (warn) warning = 'Ваш ход: подходящие карты подняты'
+
+  const meFloats = floats.filter((f) => f.id === me)
 
   return (
     <>
@@ -302,8 +383,10 @@ function Table({ view, chat, send }) {
 
       <div className="seats">
         {opponents.map((p) => p && (
-          <div key={p.id} className={`seat ${p.id === view.turn ? 'active' : ''} ${p.online ? '' : 'away'}`}>
+          <div key={p.id} ref={(el) => { seatRefs.current[p.id] = el }}
+            className={`seat ${p.id === view.turn && playing ? 'active' : ''} ${p.online ? '' : 'away'}`}>
             {bubbles[p.id] && <span key={bubbles[p.id].id} className="say">{bubbles[p.id].text}</span>}
+            <Floats list={floats.filter((f) => f.id === p.id)} />
             <div className="who">
               <span className="dot" style={{ background: p.color }} />
               <span className="n">{p.name}</span>
@@ -320,45 +403,54 @@ function Table({ view, chat, send }) {
       </div>
 
       <div className="center">
-        <button className={`pile ${myTurn && !view.drew ? 'can' : ''}`} disabled={!myTurn || view.drew}
-          onClick={() => send({ t: 'draw' })} aria-label="Взять карту из колоды">
+        <button className={`pile ${myTurn && !view.drew ? 'can' : ''} ${myTurn && !view.drew && !anyPlayable ? 'need' : ''}`}
+          disabled={!myTurn || view.drew} onClick={() => send({ t: 'draw' })} aria-label="Взять карту из колоды">
           <div className="stack"><CardBack /></div>
           <span>Колода · {view.drawCount}</span>
         </button>
         <div className="dir" aria-label={view.dir === 1 ? 'Ход по часовой' : 'Ход против часовой'}>
-          {view.dir === 1 ? '↻' : '↺'}
+          <span key={revKey} className={revKey ? 'flip' : ''}>{view.dir === 1 ? '↻' : '↺'}</span>
           <small>{view.dir === 1 ? 'по часовой' : 'против'}</small>
         </div>
         {view.top && (
           <div className="discard" style={{ '--hc': COLOR_VAR[view.color] }}>
             <div className="halo">
-              <div className="heap">
+              <div className="heap" ref={heapRef}>
                 {(view.recent || [view.top]).map((c, i, arr) => {
                   const s = scatter(c.id)
                   const isTop = i === arr.length - 1
+                  const f = fly && fly.id === c.id ? fly : null
                   return (
-                    <div key={c.id} className={`heap-card ${isTop && animateTop ? 'land' : ''}`}
-                      style={{ '--rot': `${isTop ? s.rot / 3 : s.rot}deg`, '--dx': `${s.dx}px`, '--dy': `${s.dy}px` }}>
+                    <div key={c.id} className={`heap-card ${f ? f.kind : ''}`}
+                      style={{ '--rot': `${isTop ? s.rot / 3 : s.rot}deg`, '--dx': `${s.dx}px`, '--dy': `${s.dy}px`,
+                        ...(f?.kind === 'fly' ? { '--fx': `${f.fx}px`, '--fy': `${f.fy}px` } : {}) }}>
                       <Card card={c} />
                     </div>
                   )
                 })}
               </div>
             </div>
-            <span className="lbl">Цвет: <b>{COLOR_NAME[view.color]}</b></span>
+            <span className="lbl">Цвет: <b key={view.color} className="pulse">{COLOR_NAME[view.color]}</b></span>
           </div>
         )}
       </div>
 
-      {view.status === 'playing' && (
-        myTurn
-          ? <><div className="status mine">Ваш ход</div><p className="hint">{hint}</p></>
-          : <><div className="status">Ходит {cur?.name ?? '…'}</div><p className="hint">{stuck ? `${cur?.online ? 'Не отвечает' : 'Не в сети'} больше минуты. ${isHost ? 'Можно пропустить этот ход.' : 'Хозяин стола может пропустить этот ход.'}` : cur && !cur.online ? 'Игрок не в сети' : ' '}</p></>
+      {playing && (
+        <div className="turnline">
+          {myTurn
+            ? <div key="mine" className="status mine pop-in">Ваш ход</div>
+            : <div key={view.turn} className="status pop-in">Ходит {cur?.name ?? '…'}</div>}
+          {warning && <div key={warning} className="warn">{warning}</div>}
+          {stuck && (
+            <div className="warn soft">
+              {cur?.online ? 'Не отвечает' : 'Не в сети'} больше минуты.{' '}
+              {isHost ? 'Можно пропустить этот ход.' : 'Хозяин стола может пропустить этот ход.'}
+            </div>
+          )}
+        </div>
       )}
 
-      <div className="log" aria-live="polite">
-        {view.log.slice(0, 3).map((e, i) => <div key={i}>{logText(e)}</div>)}
-      </div>
+      <p className="sr-only" aria-live="polite">{view.log[0] ? eventText(view.log[0]) : ''}</p>
 
       <div className="actions">
         {myTurn && hand.length === 2 && anyPlayable && (
@@ -366,7 +458,9 @@ function Table({ view, chat, send }) {
             {calling ? '«УНОС» сказано' : 'УНОС'}
           </button>
         )}
-        {myTurn && view.drew && <button className="btn" onClick={() => send({ t: 'pass' })}>Пас</button>}
+        {myTurn && view.drew && (
+          <button className={`btn ${warn && !anyPlayable ? 'primary pulse-btn' : ''}`} onClick={() => send({ t: 'pass' })}>Пас</button>
+        )}
         {isHost && stuck && cur && (
           <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
         )}
@@ -374,9 +468,12 @@ function Table({ view, chat, send }) {
 
       {seated ? (
         <div className="handwrap">
-          {bubbles[me] && <div className="say-row"><span key={bubbles[me].id} className="say mine-say">{bubbles[me].text}</span></div>}
+          <div className="say-row">
+            {bubbles[me] && <span key={bubbles[me].id} className="say mine-say">{bubbles[me].text}</span>}
+            <Floats list={meFloats} />
+          </div>
           <div className="mine-label">Ваши карты · {hand.length}{byId[me]?.wins ? ` · побед: ${byId[me].wins}` : ''}</div>
-          <div className="hand">
+          <div className={`hand ${myTurn ? 'turn' : 'waiting'}`} ref={handRef}>
             {hand.map((c) => {
               const ok = myTurn && playable.has(c.id)
               return (
@@ -400,7 +497,7 @@ function Table({ view, chat, send }) {
 
       {pickCard && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="pickH">
-          <div className="sheet">
+          <div className="sheet pop-in">
             <h2 id="pickH">Какой цвет заказываете?</h2>
             <div className="swatches">
               {['r', 'y', 'g', 'b'].map((c) => (
@@ -416,7 +513,8 @@ function Table({ view, chat, send }) {
 
       {view.status === 'finished' && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="winH">
-          <div className="sheet">
+          {view.winner === me && <Confetti />}
+          <div className="sheet pop-in">
             {view.top && <div className="win-card"><Card card={view.top} className="pop" /></div>}
             <h2 id="winH">{view.winner === me ? 'Вы выиграли партию!' : `${byId[view.winner]?.name ?? 'Игрок'} выигрывает партию`}</h2>
             <div className="scores">

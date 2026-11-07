@@ -127,8 +127,8 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
   background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.32) 48%, transparent 58%);
   background-size: 260% 100%; background-position: var(--sx, 130%) 0; opacity: 0; transition: opacity .2s;
 }
-.hcard:hover .card .shine, .land .card .shine { opacity: 1 }
-.land .card .shine { animation: sweep .7s ease-out }
+.hcard:hover .card .shine, .land .card .shine, .fly .card .shine { opacity: 1 }
+.land .card .shine, .fly .card .shine { animation: sweep .7s ease-out .25s backwards }
 @keyframes sweep { from { background-position: 130% 0 } to { background-position: -30% 0; opacity: 0 } }
 
 /* рубашка */
@@ -150,7 +150,8 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .tcode small { font-family: var(--body); letter-spacing: 0; color: var(--muted); font-weight: 600; margin-left: 8px }
 .seats { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 28px }
 .seat { position: relative; background: rgba(20, 18, 42, .7); border: 1.5px solid var(--line); border-radius: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 120px; max-width: 200px; transition: border-color .2s, box-shadow .2s }
-.seat.active { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,211,107,.18), 0 0 24px rgba(255,211,107,.15) }
+.seat.active { border-color: var(--gold); animation: seat-glow 1.6s ease-in-out infinite }
+@keyframes seat-glow { 0%, 100% { box-shadow: 0 0 0 2px rgba(255,211,107,.12), 0 0 14px rgba(255,211,107,.1) } 50% { box-shadow: 0 0 0 5px rgba(255,211,107,.22), 0 0 30px rgba(255,211,107,.25) } }
 .seat.away { opacity: .6 }
 .seat .who { display: flex; align-items: center; gap: 7px; font-weight: 700; min-width: 0 }
 .seat .who small { color: var(--muted); font-weight: 600 }
@@ -171,7 +172,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
   box-shadow: 0 6px 18px rgba(0,0,0,.35); z-index: 5; animation: say-in .25s ease-out, say-out .4s ease-in 3.6s forwards;
 }
 .say::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border: 6px solid transparent; border-top-color: var(--paper) }
-.say-row { position: relative; height: 0 }
+.say-row { position: relative; height: 0; display: flex; justify-content: center }
 .mine-say { bottom: 4px; background: var(--gold) }
 .mine-say::after { border-top-color: var(--gold) }
 @keyframes say-in { from { opacity: 0; transform: translate(-50%, 6px) scale(.9) } }
@@ -193,6 +194,9 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .heap-card { position: absolute; inset: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) }
 .heap-card.land { animation: land .4s cubic-bezier(.2, 1.3, .4, 1) }
 @keyframes land { from { transform: translate(0, -60px) rotate(calc(var(--rot) - 25deg)) scale(1.15); opacity: .3 } }
+/* сыгранная карта летит от игрока к сбросу */
+.heap-card.fly { animation: fly .5s cubic-bezier(.25, .9, .35, 1.08); z-index: 3 }
+@keyframes fly { from { transform: translate(var(--fx), var(--fy)) rotate(calc(var(--rot) - 35deg)) scale(.55) } 70% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1.08) } }
 .discard .lbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
 .discard .lbl b { color: var(--hc) }
 .dir { font-family: var(--display); font-size: 26px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px }
@@ -201,9 +205,39 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 @keyframes pop { from { transform: scale(.7) rotate(-12deg); opacity: .4 } to { transform: none; opacity: 1 } }
 .status { text-align: center; font-family: var(--display); font-weight: 700; font-size: clamp(15px, 3.6vw, 19px); margin: 6px 0 4px; text-wrap: balance }
 .status.mine { color: var(--gold) }
-.hint { text-align: center; color: var(--muted); font-size: 13px; min-height: 1.45em }
-.log { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 13px; color: var(--muted); min-height: 66px; margin: 8px 0; text-align: center }
-.log div:first-child { color: var(--paper) }
+/* строка хода: «Ваш ход» / «Ходит …» и подсказка, только когда игрок задумался */
+.turnline { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 64px; margin: 4px 0 6px }
+.pop-in { animation: pop-in .35s cubic-bezier(.2, 1.4, .4, 1) }
+@keyframes pop-in { from { transform: scale(.8); opacity: 0 } }
+.warn { background: rgba(255,211,107,.14); border: 1.5px solid rgba(255,211,107,.5); color: var(--gold); font-weight: 700; font-size: 14px;
+  padding: 8px 14px; border-radius: 12px; text-align: center; max-width: 34ch; animation: warn-in .5s ease-out }
+.warn.soft { background: var(--felt-2); border-color: var(--line); color: var(--muted); font-weight: 600 }
+@keyframes warn-in { 0% { transform: translateY(6px); opacity: 0 } 40% { transform: translateX(-5px); opacity: 1 } 60% { transform: translateX(5px) } 80% { transform: translateX(-2px) } }
+.pulse-btn { animation: pulse-btn 1s ease-in-out infinite }
+@keyframes pulse-btn { 50% { transform: scale(1.07); box-shadow: 0 0 0 6px rgba(255,211,107,.2) } }
+.pile.need .stack .back { animation: need 1s ease-in-out infinite }
+@keyframes need { 0%, 100% { transform: translateY(0) rotate(0) } 25% { transform: translateY(-6px) rotate(-3deg) } 75% { transform: translateY(-6px) rotate(3deg) } }
+.dir .flip { display: inline-block; animation: flip .6s ease-in-out }
+@keyframes flip { from { transform: rotate(-360deg) scale(1.3); color: var(--gold) } }
+.discard .lbl .pulse { display: inline-block; animation: pop-in .4s cubic-bezier(.2, 1.4, .4, 1) }
+
+/* метки над игроками: «+2», «Пропуск», «УНОС!» */
+.float { position: absolute; left: 50%; top: -6px; z-index: 6; pointer-events: none; white-space: nowrap;
+  font-family: var(--display); font-weight: 900; font-size: 15px; padding: 3px 9px; border-radius: 999px;
+  animation: float-up 1.6s ease-out forwards; animation-delay: calc(var(--i) * .15s) }
+.float.plus { background: var(--red); color: #fff }
+.float.skip { background: var(--paper); color: var(--card-ink) }
+.float.unos { background: var(--gold); color: var(--card-ink) }
+@keyframes float-up { 0% { transform: translate(-50%, 10px) scale(.6); opacity: 0 } 15% { transform: translate(-50%, -6px) scale(1.15); opacity: 1 }
+  30% { transform: translate(-50%, -10px) scale(1) } 80% { opacity: 1 } 100% { transform: translate(-50%, -34px); opacity: 0 } }
+.say-row .float { top: -4px }
+
+/* конфетти победителю */
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 21 }
+.confetti i { position: absolute; top: -20px; width: 9px; height: 15px; border-radius: 2px; opacity: .95; animation: confetti linear infinite }
+@keyframes confetti { from { transform: translateY(-20px) rotate(var(--r)) } to { transform: translateY(105vh) rotate(calc(var(--r) + 540deg)) } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0 }
 .chip { display: inline-grid; place-items: center; min-width: 22px; height: 18px; padding: 0 4px; border-radius: 5px; font-family: var(--display); font-size: 10px; font-weight: 700; color: #fff; background: var(--c); vertical-align: -3px; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.8) }
 .chip.c-y { color: var(--card-ink) }
 .chip.c-w { background: conic-gradient(var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0) }
@@ -211,16 +245,23 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 
 /* рука */
 .handwrap { margin-top: auto; padding-top: 10px }
-.hand { display: flex; justify-content: safe center; overflow-x: auto; padding: 24px 10px 14px; scrollbar-width: thin; perspective: 900px }
+.hand { display: flex; justify-content: safe center; overflow-x: auto; padding: 26px 10px 20px; scrollbar-width: thin; perspective: 900px }
 .hcard {
   background: none; border: 0; padding: 0; flex: none; transform-style: preserve-3d;
   transform: translateY(var(--lift, 0)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform .18s ease-out;
 }
 .hcard + .hcard { margin-left: calc(var(--cw) * -.28) }
-.hcard.ok { --lift: -12px }
-.hcard.ok:hover { --lift: -22px; z-index: 2 }
-.hcard.no .card { filter: saturate(.75) brightness(.78) }
+/* мой ход: подходящие карты подняты, остальные притемнены; чужой ход: вся рука опущена и темнее */
+.hcard .card { transition: filter .25s, box-shadow .25s }
+.hcard.ok { --lift: -16px; z-index: 1 }
+/* неактивные карты не перехватывают нажатия: тап по перекрытой части попадает в подходящую карту */
+.hcard:disabled { pointer-events: none }
+.hcard.ok .card { box-shadow: inset 0 0 0 calc(var(--cw) * .045) #fff, 0 0 0 3px rgba(255,211,107,.85), 0 10px 22px rgba(0,0,0,.45) }
+.hcard.ok:hover { --lift: -24px; z-index: 2 }
+.hcard.no .card { filter: saturate(.7) brightness(.72) }
+.hand.waiting .hcard { --lift: 12px }
+.hand.waiting .hcard .card { filter: saturate(.6) brightness(.55) }
 .hcard.dealt { animation: deal .45s cubic-bezier(.2, 1.1, .4, 1) backwards }
 @keyframes deal { from { transform: translate(0, -160px) rotate(-25deg) scale(.6); opacity: 0 } }
 .mine-label { text-align: center; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700 }
@@ -291,7 +332,10 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
   .center { --cw: 25vw }
   .hand { padding-inline: 2px }
   .hcard + .hcard { margin-left: calc(var(--cw) * -.5) }
-  .hcard.ok { --lift: -10px }
+  .hcard.ok { --lift: -14px }
+  .dir small { display: none }
+  .center { margin: 18px 0 8px }
+  .seats { padding-top: 20px }
 }
 /* у страницы одна тёмная тема при любой настройке телефона */
 @media (prefers-color-scheme: dark) { :root { color-scheme: dark } }

@@ -79,6 +79,7 @@ type Room struct {
 	lastSeen time.Time
 	closed   bool
 	chat     []ChatMsg
+	lastBy   string    // кто положил верхнюю карту сброса
 	turnAt   time.Time // когда текущий игрок получил ход или последний раз что-то сделал
 	chatSeq  int
 }
@@ -210,6 +211,7 @@ func (r *Room) startRound() error {
 	r.winner = ""
 	r.log = nil
 	r.Status = "playing"
+	r.lastBy = ""
 	r.touch()
 	r.addLog(LogEntry{K: "start"})
 	return nil
@@ -240,6 +242,7 @@ func (r *Room) play(p *Player, cardID int, color string, last bool) error {
 	}
 	p.Hand = append(p.Hand[:idx], p.Hand[idx+1:]...)
 	r.discard = append(r.discard, card)
+	r.lastBy = p.ID
 	cc := card
 	if card.C == "w" {
 		r.color = color
