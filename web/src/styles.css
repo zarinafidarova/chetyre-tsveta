@@ -219,7 +219,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .wait { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; margin-top: 10px }
 .bigcode { font-family: var(--display); font-weight: 900; font-size: clamp(44px, 14vw, 84px); letter-spacing: .16em; line-height: 1; color: var(--gold) }
 .share { display: flex; gap: 8px; width: min(440px, 100%) }
-.share input { font-size: 13px; padding: 8px 12px }
+.share input { padding: 8px 12px }
 .plist { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px; margin-top: 6px }
 .pl { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px; background: var(--felt-2); border: 1px solid var(--line); font-weight: 700 }
 .pl.away { opacity: .55 }
@@ -246,7 +246,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .qbtn { flex: none; border: 1px solid var(--line); background: var(--felt); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 600 }
 .qbtn:hover { background: var(--felt-2) }
 .chat-form { display: flex; gap: 8px; padding: 10px 12px 12px }
-.chat-form input { padding: 8px 12px; font-size: 14px }
+.chat-form input { padding: 8px 12px }
 .chat-fab {
   position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 15;
   display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--line);
@@ -353,3 +353,11 @@ body:has(#app.on-table) { overscroll-behavior: none }
 
 /* кнопки над рукой — с зазором до подписи «Ваши карты» */
 .handwrap .actions { margin: 0 0 16px }
+
+/* Поля ввода — не меньше 16px: на меньшем шрифте Safari на iPhone и часть Android-браузеров
+   при нажатии на поле зумят страницу. Так же сделано в trainer (login.vue). */
+input, textarea, select { font-size: 16px !important }
+/* Быстрые тапы по картам и кнопкам браузер принимает за двойной тап и зумит.
+   manipulation отключает только двойной тап: прокрутка и щипок остаются (как в trainer). */
+button, a, input, label, .hand, .pile { touch-action: manipulation }
+button { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent }
