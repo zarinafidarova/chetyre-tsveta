@@ -309,7 +309,12 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .chat-backdrop { position: fixed; inset: 0; z-index: 25; background: rgba(10, 9, 24, .55); display: flex; align-items: flex-end; justify-content: center }
 .chat.drawer { width: min(560px, 100%); height: min(75vh, 620px); border-radius: 20px 20px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px); animation: up .22s ease-out }
 @keyframes up { from { transform: translateY(40px); opacity: 0 } }
-@media (max-width: 999px) { .game { padding-bottom: 60px } }
+/* без боковой панели чата: кнопка чата стоит в верхней строке, а не поверх карт */
+.topbar .short { display: none }
+@media (max-width: 999px) {
+  .chat-fab { top: calc(18px + env(safe-area-inset-top, 0px)); bottom: auto; padding: 7px 12px; font-size: 13px; box-shadow: none }
+  .topbar { padding-right: 92px; flex-wrap: nowrap }
+}
 
 /* окна поверх стола */
 .overlay { position: fixed; inset: 0; background: rgba(10, 9, 24, .72); display: grid; place-items: center; z-index: 20;
@@ -336,6 +341,29 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
   .dir small { display: none }
   .center { margin: 18px 0 8px }
   .seats { padding-top: 20px }
+
+  /* стол на телефоне ровно в один экран, без прокрутки */
+  #app.on-table { height: 100vh; height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); min-height: 0; padding-block: 18px 6px }
+  #app.on-table .layout { min-height: 0; grid-template-rows: minmax(0, 1fr) }
+  #app.on-table .game { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none }
+  :root { --cw: min(22vw, 13dvh) }
+  .center { --cw: min(25vw, 16dvh) }
+  .topbar { margin-bottom: 4px }
+  .topbar .long { display: none }
+  .topbar .short { display: inline }
+  .turnline { min-height: 50px; margin: 2px 0 4px }
+  .actions { min-height: 40px; margin: 2px 0 }
+}
+body:has(#app.on-table) { overscroll-behavior: none }
+.topbar .btn, .tcode { white-space: nowrap }
+@media (max-width: 380px) { .tcode small { display: none } .tcode { letter-spacing: .08em } }
+/* низкие экраны: поджимаем отступы, чтобы рука помещалась без прокрутки */
+@media (max-width: 600px) and (max-height: 700px) {
+  .seats { padding-top: 12px }
+  .center { margin: 8px 0 4px }
+  .turnline { min-height: 42px; gap: 6px }
+  .hand { padding-top: 20px; padding-bottom: 12px }
+  .mine-label { font-size: 11px }
 }
 /* у страницы одна тёмная тема при любой настройке телефона */
 @media (prefers-color-scheme: dark) { :root { color-scheme: dark } }

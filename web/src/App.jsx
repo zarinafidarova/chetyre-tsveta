@@ -37,7 +37,7 @@ export default function App() {
   else screen = <Table view={view} chat={chat} send={send} />
 
   return (
-    <div id="app" className={view ? 'with-chat' : ''}>
+    <div id="app" className={view ? `with-chat${view.status !== 'lobby' ? ' on-table' : ''}` : ''}>
       {view ? (
         <div className="layout">
           <main className="game">{screen}</main>
@@ -164,7 +164,7 @@ function Lobby({ view, send }) {
 function TopBar({ view, send }) {
   return (
     <div className="topbar">
-      <button className="btn ghost small" onClick={() => send({ t: 'leave' })}>← Встать из-за стола</button>
+      <button className="btn ghost small" onClick={() => send({ t: 'leave' })}>← <span className="long">Встать из-за стола</span><span className="short">Выйти</span></button>
       <span className="tcode">СТОЛ {view.code}{view.round > 0 && <small>партия {view.round}</small>}</span>
     </div>
   )
