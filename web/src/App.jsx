@@ -543,28 +543,27 @@ function Table({ view, chat, send }) {
 
       <p className="sr-only" aria-live="polite">{view.log[0] ? eventText(view.log[0]) : ''}</p>
 
-      <div className="actions">
-        {myTurn && hand.length === 2 && anyPlayable && (
-          <button className="btn call painted ptext" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
-            <Paint bg={calling ? GOLD : HEX.r.c} text={calling ? '«УНОС» сказано' : 'УНОС'} color={calling ? INK : '#fff'} />
-            {calling ? '«УНОС» сказано' : 'УНОС'}
-          </button>
-        )}
-        {myTurn && view.drew && (
-          <button className={`btn ${warn && !anyPlayable ? 'primary pulse-btn painted ptext' : ''}`} onClick={() => send({ t: 'pass' })}>
-            {warn && !anyPlayable && <Paint bg={GOLD} text="Пас" color={INK} />}Пас
-          </button>
-        )}
-        {isHost && stuck && cur && (
-          <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
-        )}
-      </div>
-
       {seated ? (
         <div className="handwrap">
           <div className="say-row">
             {bubbles[me] && <span key={bubbles[me].id} className="say mine-say">{bubbles[me].text}</span>}
             <Floats list={meFloats} />
+          </div>
+          <div className="actions">
+            {myTurn && hand.length === 2 && anyPlayable && (
+              <button className="btn call painted ptext" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
+                <Paint bg={calling ? GOLD : HEX.r.c} text={calling ? '«УНОС» сказано' : 'УНОС'} color={calling ? INK : '#fff'} />
+                {calling ? '«УНОС» сказано' : 'УНОС'}
+              </button>
+            )}
+            {myTurn && view.drew && (
+              <button className={`btn ${warn && !anyPlayable ? 'primary pulse-btn painted ptext' : ''}`} onClick={() => send({ t: 'pass' })}>
+                {warn && !anyPlayable && <Paint bg={GOLD} text="Пас" color={INK} />}Пас
+              </button>
+            )}
+            {isHost && stuck && cur && (
+              <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
+            )}
           </div>
           <div className="mine-label">Ваши карты · {hand.length}{byId[me]?.wins ? ` · побед: ${byId[me].wins}` : ''}</div>
           <div className={`hand ${myTurn ? 'turn' : 'waiting'}`} ref={handRef}>

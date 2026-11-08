@@ -179,7 +179,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .float.unos { background: var(--gold); color: var(--card-ink) }
 @keyframes float-up { 0% { transform: translate(-50%, 10px) scale(.6); opacity: 0 } 15% { transform: translate(-50%, -6px) scale(1.15); opacity: 1 }
   30% { transform: translate(-50%, -10px) scale(1) } 80% { opacity: 1 } 100% { transform: translate(-50%, -34px); opacity: 0 } }
-.say-row .float { top: -4px }
+.say-row .float { top: -18px }
 
 /* конфетти победителю */
 .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 21 }
