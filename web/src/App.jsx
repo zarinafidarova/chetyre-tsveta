@@ -249,14 +249,95 @@ function Floats({ list }) {
   ))
 }
 
-// Новые карты в руке «прилетают» из колоды; при раздаче — по очереди.
-function useDealDelays(hand) {
-  const known = useRef(new Set())
-  const delays = {}
-  let k = 0
-  for (const c of hand) if (!known.current.has(c.id)) delays[c.id] = k++ * 60
-  useEffect(() => { known.current = new Set(hand.map((c) => c.id)) })
-  return delays
+// Карты из колоды летят к тому, кто их взял: мне — рубашкой вверх с переворотом в полёте,
+// соперникам — рубашкой к их месту. Рисуются в отдельном слое поверх стола.
+const DECK_FLY_MS = 550
+const DECK_STAGGER_MS = 90
+
+function useDeckFlights(view, me, deckRef, handRef, seatRefs) {
+  const [flyers, setFlyers] = useState([])
+  const [arriving, setArriving] = useState({}) // id карты в руке → через сколько мс она «приземлится»
+  const prev = useRef(null)
+  const seq = useRef(0)
+  const timers = useRef([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  useLayoutEffect(() => {
+    const old = prev.current
+    prev.current = {
+      hand: new Set(view.hand.map((c) => c.id)),
+      counts: Object.fromEntries(view.players.map((p) => [p.id, p.count])),
+      round: view.round,
+    }
+    const deckEl = deckRef.current
+    // стол только что появился на экране: если партия только началась, показываем раздачу
+    const justDealt = !old && view.log.length === 1 && view.log[0].k === 'start'
+    if ((!old && !justDealt) || !deckEl || view.status !== 'playing') return
+    const base = old || { hand: new Set(), counts: {}, round: -1 }
+    const deck = deckEl.getBoundingClientRect()
+    const batch = []
+    const land = {}
+
+    // мои новые карты, в порядке руки
+    let k = 0
+    for (const el of handRef.current ? handRef.current.querySelectorAll('[data-id]') : []) {
+      const id = Number(el.dataset.id)
+      if (base.hand.has(id)) continue
+      const card = view.hand.find((c) => c.id === id)
+      if (!card) continue
+      const r = el.getBoundingClientRect()
+      const delay = k++ * DECK_STAGGER_MS
+      batch.push({ key: `f${++seq.current}`, card, w: r.width, x0: deck.left, y0: deck.top, s0: deck.width / r.width, x1: r.left, y1: r.top, delay })
+      land[id] = delay + DECK_FLY_MS
+    }
+
+    // соперники: рубашки к месту (в начале новой партии не показываем)
+    if (base.round === view.round) {
+      for (const p of view.players) {
+        if (p.id === me) continue
+        const d = p.count - (base.counts[p.id] ?? p.count)
+        const seat = seatRefs.current[p.id]
+        if (d <= 0 || !seat) continue
+        const r = seat.getBoundingClientRect()
+        const w = 34
+        for (let i = 0; i < Math.min(d, 6); i++) {
+          batch.push({ key: `f${++seq.current}`, back: true, w, x0: deck.left, y0: deck.top, s0: deck.width / w,
+            x1: r.left + r.width / 2 - w / 2, y1: r.top + r.height / 2 - (w * 1.45) / 2, delay: i * DECK_STAGGER_MS })
+        }
+      }
+    }
+    if (!batch.length) return
+
+    setFlyers((fs) => [...fs, ...batch])
+    setArriving((a) => ({ ...a, ...land }))
+    const total = Math.max(...batch.map((f) => f.delay)) + DECK_FLY_MS + 120
+    timers.current.push(setTimeout(() => {
+      setFlyers((fs) => fs.filter((f) => !batch.includes(f)))
+      setArriving((a) => { const n = { ...a }; for (const id of Object.keys(land)) delete n[id]; return n })
+    }, total))
+  }, [view, me, deckRef, handRef, seatRefs])
+
+  return { flyers, arriving }
+}
+
+function FlyLayer({ flyers }) {
+  if (!flyers.length) return null
+  return (
+    <div className="flylayer" aria-hidden="true">
+      {flyers.map((f) => (
+        <div key={f.key} className={`flyer ${f.back ? 'opp' : 'mine'}`}
+          style={{ '--cw': `${f.w}px`, '--x0': `${f.x0}px`, '--y0': `${f.y0}px`, '--s0': f.s0,
+            '--x1': `${f.x1}px`, '--y1': `${f.y1}px`, '--delay': `${f.delay}ms`, '--dur': `${DECK_FLY_MS}ms` }}>
+          {f.back ? <CardBack /> : (
+            <div className="flip">
+              <div className="side"><Card card={f.card} /></div>
+              <div className="side back-side"><CardBack /></div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // Лёгкий наклон карты за курсором.
@@ -318,13 +399,14 @@ function Table({ view, chat, send }) {
   // сбрасываем «УНОС» и выбор цвета, когда ход ушёл
   useEffect(() => { if (!myTurn) { setCalling(false); setPicking(null) } }, [myTurn])
 
-  const delays = useDealDelays(hand)
 
   // Сыгранная карта прилетает в сброс от того, кто её положил.
   const topKey = view.top ? view.top.id : null
   const heapRef = useRef(null)
   const handRef = useRef(null)
   const seatRefs = useRef({})
+  const deckRef = useRef(null)
+  const { flyers, arriving } = useDeckFlights(view, me, deckRef, handRef, seatRefs)
   const prevTop = useRef(topKey)
   const [fly, setFly] = useState(null)
   useLayoutEffect(() => {
@@ -405,7 +487,7 @@ function Table({ view, chat, send }) {
       <div className="center">
         <button className={`pile ${myTurn && !view.drew ? 'can' : ''} ${myTurn && !view.drew && !anyPlayable ? 'need' : ''}`}
           disabled={!myTurn || view.drew} onClick={() => send({ t: 'draw' })} aria-label="Взять карту из колоды">
-          <div className="stack"><CardBack /></div>
+          <div className="stack" ref={deckRef}><CardBack /></div>
           <span>Колода · {view.drawCount}</span>
         </button>
         <div className="dir" aria-label={view.dir === 1 ? 'Ход по часовой' : 'Ход против часовой'}>
@@ -477,8 +559,8 @@ function Table({ view, chat, send }) {
             {hand.map((c) => {
               const ok = myTurn && playable.has(c.id)
               return (
-                <button key={c.id} className={`hcard ${myTurn ? (ok ? 'ok' : 'no') : ''} ${c.id in delays ? 'dealt' : ''}`}
-                  style={c.id in delays ? { animationDelay: `${delays[c.id]}ms` } : undefined}
+                <button key={c.id} data-id={c.id} className={`hcard ${myTurn ? (ok ? 'ok' : 'no') : ''} ${c.id in arriving ? 'arriving' : ''}`}
+                  style={c.id in arriving ? { '--land': `${arriving[c.id]}ms` } : undefined}
                   disabled={!ok} aria-label={cardLabel(c)} onPointerMove={tilt} onPointerLeave={untilt}
                   onClick={() => (c.c === 'w' ? setPicking(c.id) : playCard(c))}>
                   <Card card={c} />
@@ -494,6 +576,8 @@ function Table({ view, chat, send }) {
       {waiting.length > 0 && seated && (
         <p className="note center-text">Ждут следующей раздачи: {waiting.map((p) => p.name).join(', ')}</p>
       )}
+
+      <FlyLayer flyers={flyers} />
 
       {pickCard && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="pickH">
