@@ -208,6 +208,8 @@ function useBubbles(chat) {
 // Берутся из изменения числа карт и из новых записей журнала сервера.
 function useFloats(view, me) {
   const [floats, setFloats] = useState([])
+  const timers = useRef([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
   const [revKey, setRevKey] = useState(0)
   const prev = useRef(null)
   useEffect(() => {
@@ -237,8 +239,8 @@ function useFloats(view, me) {
     if (!add.length) return
     const stamped = add.map((f, i) => ({ ...f, key: `${Date.now()}-${i}` }))
     setFloats((fs) => [...fs, ...stamped])
-    const t = setTimeout(() => setFloats((fs) => fs.filter((f) => !stamped.includes(f))), 1600)
-    return () => clearTimeout(t)
+    // таймер живёт до конца анимации, даже если за это время придёт новое состояние стола
+    timers.current.push(setTimeout(() => setFloats((fs) => fs.filter((f) => !stamped.includes(f))), 1700))
   }, [view, me])
   return { floats, revKey }
 }
@@ -474,15 +476,11 @@ function Table({ view, chat, send }) {
             {p.id === view.turn && playing && <Paint ring={GOLD} />}
             {bubbles[p.id] && <span key={bubbles[p.id].id} className="say">{bubbles[p.id].text}</span>}
             <Floats list={floats.filter((f) => f.id === p.id)} />
-            <div className="who">
-              <span className="dot painted"><Paint bg={p.color} /></span>
-              <span className="n">{p.name}</span>
-              {p.bot && <small>бот</small>}
-            </div>
-            <div className="meta">
-              <span className="minis">{Array.from({ length: Math.min(p.count, 12) }, (_, i) => <i key={i} />)}</span>
-              <span>{p.count} {plural(p.count, 'карта', 'карты', 'карт')}</span>
-            </div>
+            <span className="dot painted"><Paint bg={p.color} /></span>
+            <span className="n">{p.name}</span>
+            <span className="count" aria-label={`${p.count} ${plural(p.count, 'карта', 'карты', 'карт')}`}>
+              <span className="mini-back"><CardBack /></span>{p.count}
+            </span>
             {!p.online && <span className="tag">не в сети</span>}
             {p.count === 1 && <span className="flag painted ptext"><Paint bg={GOLD} text="УНОС!" color={INK} />УНОС!</span>}
           </div>
