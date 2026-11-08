@@ -360,4 +360,7 @@ input, textarea, select { font-size: 16px !important }
 /* Быстрые тапы по картам и кнопкам браузер принимает за двойной тап и зумит.
    manipulation отключает только двойной тап: прокрутка и щипок остаются (как в trainer). */
 button, a, input, label, .hand, .pile { touch-action: manipulation }
-button { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent }
+button { -webkit-user-select: none; user-select: none }
+/* Android при тапе кладёт на элемент полупрозрачную синюю плашку: тёмные кнопки синели,
+   золотые зеленели. Выключаем для всей страницы — отклик на нажатие дают свои стили (:active). */
+html, * { -webkit-tap-highlight-color: transparent }
