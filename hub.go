@@ -436,7 +436,7 @@ type PlayerView struct {
 	Online  bool   `json:"online"`
 	Bot     bool   `json:"bot"`
 	InRound bool   `json:"inRound"`
-	Wins    int    `json:"wins"`
+	Points  int    `json:"points"`
 }
 
 type View struct {
@@ -458,6 +458,7 @@ type View struct {
 	LastBy    string       `json:"lastBy"` // кто положил верхнюю карту // сколько мс текущий игрок ничего не делает
 	Log       []LogEntry   `json:"log"`
 	Winner    string       `json:"winner"`
+	Gain      int          `json:"gain"` // сколько очков принесла последняя партия победителю
 	Round     int          `json:"round"`
 	Hand      []Card       `json:"hand"`
 	Playable  []int        `json:"playable"`
@@ -467,6 +468,9 @@ func (r *Room) view(me *Player) View {
 	v := View{T: "state", Code: r.Code, Status: r.Status, Host: r.Host, You: me.ID, Color: r.color, Dir: r.dir,
 		Drew: r.drew, DrawCount: len(r.draw), Log: r.log, Winner: r.winner, Round: r.round,
 		Players: []PlayerView{}, Order: []string{}, Hand: []Card{}, Playable: []int{}}
+	if r.Status == "finished" {
+		v.Gain = r.gain
+	}
 	inRound := map[*Player]bool{}
 	if r.Status != "lobby" {
 		for _, p := range r.order {
@@ -490,7 +494,7 @@ func (r *Room) view(me *Player) View {
 	}
 	for _, p := range r.players {
 		v.Players = append(v.Players, PlayerView{ID: p.ID, Name: p.Name, Count: len(p.Hand), Online: p.Bot || p.client != nil,
-			Bot: p.Bot, InRound: inRound[p], Wins: p.Wins})
+			Bot: p.Bot, InRound: inRound[p], Points: p.Points})
 	}
 	if inRound[me] {
 		v.Hand = me.Hand

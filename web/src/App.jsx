@@ -101,6 +101,7 @@ function Home({ connected, send }) {
             <li><b>✦</b> и <b>+4</b> кладутся на что угодно, вы выбираете цвет.</li>
             <li>Нечем ходить? Возьмите карту из колоды, затем сыграйте или спасуйте.</li>
             <li>Оставляя одну карту, нажмите <b>«УНОС»</b>, иначе штраф +2.</li>
+            <li>Победитель партии получает очки за карты, оставшиеся у соперников: цифры по номиналу, <b>+2</b>, <b>⊘</b> и <b>⇄</b> по 20, <b>✦</b> и <b>+4</b> по 50.</li>
           </ul>
         </section>
       </div>
@@ -185,7 +186,7 @@ function eventText(e) {
     case 'hit': return `${n} берёт ${e.n} и пропускает ход`
     case 'pen': return `${n} берёт 2 штрафные`
     case 'last': return `${n}: УНОС!`
-    case 'win': return `${n} выигрывает`
+    case 'win': return `${n} выигрывает и получает ${e.n || 0} ${plural(e.n || 0, 'очко', 'очка', 'очков')}`
     case 'left': return `${n} встаёт из-за стола`
     default: return ''
   }
@@ -565,7 +566,7 @@ function Table({ view, chat, send }) {
               <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
             )}
           </div>
-          <div className="mine-label">Ваши карты · {hand.length}{byId[me]?.wins ? ` · побед: ${byId[me].wins}` : ''}</div>
+          <div className="mine-label">Ваши карты · {hand.length}{byId[me]?.points ? ` · ${byId[me].points} ${plural(byId[me].points, 'очко', 'очка', 'очков')}` : ''}</div>
           <div className={`hand ${myTurn ? 'turn' : 'waiting'}`} ref={handRef}>
             {hand.map((c) => {
               const ok = myTurn && playable.has(c.id)
@@ -613,9 +614,15 @@ function Table({ view, chat, send }) {
           <div className="sheet pop-in">
             {view.top && <div className="win-card"><Card card={view.top} className="pop" /></div>}
             <h2 id="winH">{view.winner === me ? 'Вы выиграли партию!' : `${byId[view.winner]?.name ?? 'Игрок'} выигрывает партию`}</h2>
+            <p className="gain">{view.gain > 0
+              ? `${view.winner === me ? 'Вам' : 'Победителю'} ${view.gain} ${plural(view.gain, 'очко', 'очка', 'очков')} за карты, оставшиеся у соперников`
+              : 'У соперников не осталось карт с очками'}</p>
             <div className="scores">
-              {[...view.players].sort((a, b) => b.wins - a.wins).map((p) => (
-                <div key={p.id}><span>{p.name}{p.id === me ? ' (вы)' : ''}</span><b>{p.wins} {plural(p.wins, 'победа', 'победы', 'побед')}</b></div>
+              {[...view.players].sort((a, b) => b.points - a.points).map((p) => (
+                <div key={p.id} className={p.id === view.winner ? 'won' : ''}>
+                  <span>{p.name}{p.id === me ? ' (вы)' : ''}</span>
+                  <b>{p.id === view.winner && view.gain > 0 && <small>+{view.gain}</small>}{p.points} {plural(p.points, 'очко', 'очка', 'очков')}</b>
+                </div>
               ))}
             </div>
             <div className="row center-row">

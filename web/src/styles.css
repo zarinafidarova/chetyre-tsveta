@@ -364,3 +364,8 @@ button { -webkit-user-select: none; user-select: none }
 /* Android при тапе кладёт на элемент полупрозрачную синюю плашку: тёмные кнопки синели,
    золотые зеленели. Выключаем для всей страницы — отклик на нажатие дают свои стили (:active). */
 html, * { -webkit-tap-highlight-color: transparent }
+
+/* очки в итогах партии */
+.sheet .gain { color: var(--muted); font-size: 14px; margin-top: -6px }
+.scores div.won { border: 1.5px solid rgba(255,255,255,.35) }
+.scores b small { font-family: var(--display); font-size: 11px; color: var(--paper); margin-right: 8px; opacity: .85 }

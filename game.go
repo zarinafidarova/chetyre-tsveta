@@ -45,7 +45,7 @@ type Player struct {
 	Name     string
 	Bot      bool
 	Hand     []Card
-	Wins     int
+	Points   int // очки за все партии за этим столом
 	client   *Client
 	lastChat time.Time
 }
@@ -80,6 +80,7 @@ type Room struct {
 	closed   bool
 	chat     []ChatMsg
 	lastBy   string    // кто положил верхнюю карту сброса
+	gain     int       // сколько очков получил победитель последней партии
 	turnAt   time.Time // когда текущий игрок получил ход или последний раз что-то сделал
 	chatSeq  int
 }
@@ -293,11 +294,34 @@ func (r *Room) play(p *Player, cardID int, color string, last bool) error {
 	return nil
 }
 
+// cardPoints — стоимость карты по правилам УНО: цифры по номиналу,
+// «+2», «Пропуск» и «Разворот» по 20, «Заказ цвета» и «+4» по 50.
+func cardPoints(c Card) int {
+	switch c.V {
+	case "D", "S", "R":
+		return 20
+	case "W", "F":
+		return 50
+	}
+	return int(c.V[0] - '0')
+}
+
+// finish завершает партию: победитель получает сумму карт, оставшихся у соперников.
 func (r *Room) finish(w *Player) {
 	r.Status = "finished"
 	r.winner = w.ID
-	w.Wins++
-	r.addLog(LogEntry{K: "win", Who: w.Name})
+	gain := 0
+	for _, p := range r.order {
+		if p == w {
+			continue
+		}
+		for _, c := range p.Hand {
+			gain += cardPoints(c)
+		}
+	}
+	w.Points += gain
+	r.gain = gain
+	r.addLog(LogEntry{K: "win", Who: w.Name, N: gain})
 }
 
 func (r *Room) drawCard(p *Player) error {
