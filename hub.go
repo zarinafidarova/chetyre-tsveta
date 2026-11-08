@@ -344,7 +344,7 @@ type simpleErr struct{ s string }
 
 func (e *simpleErr) Error() string { return e.s }
 
-var botNames = []string{"Лиса", "Ёж", "Сова", "Барсук", "Выдра", "Рысь", "Бобр", "Енот", "Филин"}
+var botNames = []string{"Утконос", "Ёж", "Сова", "Барсук", "Выдра", "Рысь", "Бобр", "Енот", "Филин"}
 
 func (r *Room) botName() string {
 	for _, n := range botNames {
