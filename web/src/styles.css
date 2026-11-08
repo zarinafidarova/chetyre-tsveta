@@ -350,3 +350,6 @@ body:has(#app.on-table) { overscroll-behavior: none }
 .float.plus { color: #fff }
 .lbl b.painted, .bigcode.painted { display: inline-block }
 .float.painted { position: absolute }
+
+/* кнопки над рукой — с зазором до подписи «Ваши карты» */
+.handwrap .actions { margin: 0 0 16px }
