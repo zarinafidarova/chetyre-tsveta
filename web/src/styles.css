@@ -69,15 +69,15 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .rules b { color: var(--paper) }
 
 /* ================= карты =================
-   Лицо карты и рубашка рисуются в SVG (Card.jsx). Тёмный режим браузеров на Android
-   перекрашивает CSS-фоны, а заливки SVG не трогает: так же решено в trainer. */
+   Лицо карты и рубашка рисуются на canvas (Card.jsx): тёмный режим Samsung
+   перекрашивает CSS-фоны, SVG и цветной текст, а готовые пиксели — нет. */
 .card, .back {
   width: var(--cw); height: calc(var(--cw) * 1.45); border-radius: calc(var(--cw) * .14);
   position: relative; flex: none; user-select: none; transition: transform .15s;
 }
-.card-svg {
-  position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible;
-  filter: drop-shadow(0 calc(var(--cw) * .05) calc(var(--cw) * .06) rgba(0,0,0,.35));
+.card-cv {
+  position: absolute; left: calc(var(--cw) * -.05); top: calc(var(--cw) * -.05);
+  width: calc(var(--cw) * 1.1); height: calc(var(--cw) * 1.55); display: block; pointer-events: none;
 }
 .c-r { --c: var(--red); --d: var(--red-d) }
 .c-y { --c: var(--yellow); --d: var(--yellow-d) }
@@ -100,8 +100,10 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .tcode small { font-family: var(--body); letter-spacing: 0; color: var(--muted); font-weight: 600; margin-left: 8px }
 .seats { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 28px }
 .seat { position: relative; background: rgba(20, 18, 42, .7); border: 1.5px solid var(--line); border-radius: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 120px; max-width: 200px; transition: border-color .2s, box-shadow .2s }
-.seat.active { border-color: var(--gold); animation: seat-glow 1.6s ease-in-out infinite }
-@keyframes seat-glow { 0%, 100% { box-shadow: 0 0 0 2px rgba(255,211,107,.12), 0 0 14px rgba(255,211,107,.1) } 50% { box-shadow: 0 0 0 5px rgba(255,211,107,.22), 0 0 30px rgba(255,211,107,.25) } }
+/* рамка ходящего — холст Paint ring, пульсирует прозрачностью */
+.seat.active { isolation: isolate }
+.seat.active > .paint { z-index: 0; inset: -1.5px; width: calc(100% + 3px); height: calc(100% + 3px); animation: ring-pulse 1.6s ease-in-out infinite }
+@keyframes ring-pulse { 0%, 100% { opacity: .55 } 50% { opacity: 1 } }
 .seat.away { opacity: .6 }
 .seat .who { display: flex; align-items: center; gap: 7px; font-weight: 700; min-width: 0 }
 .seat .who small { color: var(--muted); font-weight: 600 }
@@ -131,16 +133,15 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .center { display: flex; align-items: center; justify-content: center; gap: clamp(22px, 7vw, 64px); margin: 26px 0 12px; --cw: clamp(74px, 20vw, 104px) }
 .pile { background: none; border: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em }
 .pile .stack { position: relative }
-.pile .stack::before, .pile .stack::after { content: ""; position: absolute; inset: 0; border-radius: calc(var(--cw) * .14); background: #1c1846; box-shadow: inset 0 0 0 2px rgba(255,255,255,.45) }
-.pile .stack::before { transform: translate(-6px, 6px) }
-.pile .stack::after { transform: translate(-3px, 3px) }
-.pile .stack .back { z-index: 1 }
+.pile .stack .under { position: absolute; inset: 0; opacity: .8 }
+.pile .stack .under.u2 { transform: translate(-6px, 6px) }
+.pile .stack .under.u1 { transform: translate(-3px, 3px) }
 .pile.can .stack .back { animation: nudge 1.6s ease-in-out infinite }
 .pile.can:hover .stack .back { transform: translateY(-4px) rotate(-2deg) }
 @keyframes nudge { 50% { transform: translateY(-3px) } }
 .discard { display: flex; flex-direction: column; align-items: center; gap: 10px }
 .discard .halo { position: relative; isolation: isolate; padding: 10px }
-.halo-svg { position: absolute; inset: -18px; width: calc(100% + 36px); height: calc(100% + 36px); overflow: visible; z-index: -1; color: var(--hc); transition: color .4s }
+.glow-cv { position: absolute; inset: -20px; width: calc(100% + 40px); height: calc(100% + 40px); z-index: -1; pointer-events: none }
 .heap { position: relative; width: var(--cw); height: calc(var(--cw) * 1.45) }
 .heap-card { position: absolute; inset: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) }
 .heap-card.land { animation: land .4s cubic-bezier(.2, 1.3, .4, 1) }
@@ -160,7 +161,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .turnline { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 64px; margin: 4px 0 6px }
 .pop-in { animation: pop-in .35s cubic-bezier(.2, 1.4, .4, 1) }
 @keyframes pop-in { from { transform: scale(.8); opacity: 0 } }
-.warn { background: rgba(255,211,107,.14); border: 1.5px solid rgba(255,211,107,.5); color: var(--gold); font-weight: 700; font-size: 14px;
+.warn { background: rgba(255,211,107,.14); border: 1.5px solid rgba(255,211,107,.5); color: var(--paper); font-weight: 700; font-size: 14px;
   padding: 8px 14px; border-radius: 12px; text-align: center; max-width: 34ch; animation: warn-in .5s ease-out }
 .warn.soft { background: var(--felt-2); border-color: var(--line); color: var(--muted); font-weight: 600 }
 @keyframes warn-in { 0% { transform: translateY(6px); opacity: 0 } 40% { transform: translateX(-5px); opacity: 1 } 60% { transform: translateX(5px) } 80% { transform: translateX(-2px) } }
@@ -336,19 +337,17 @@ body:has(#app.on-table) { overscroll-behavior: none }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
 
-/* ===== цветные заливки через SVG (компонент Fill): их тёмный режим браузера не перекрашивает ===== */
-.fill { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; color: var(--fill); pointer-events: none }
-.has-fill { position: relative; isolation: isolate; overflow: hidden; background: transparent }
-/* главная кнопка: золотой текст и рамка на тёмном — светлый текст на тёмном фоне браузер не трогает */
-.btn.primary { background: var(--felt-2); color: var(--gold); border-color: var(--gold) }
-.btn.primary:hover:not(:disabled) { background: var(--line) }
-.btn.call { --fill: var(--red); background: transparent; border-color: var(--red); color: #fff }
-.btn.call[aria-pressed="true"] { background: var(--felt-2); border-color: var(--gold); color: var(--gold) }
-.btn.call[aria-pressed="true"] .fill { display: none }
-.sw { background: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45) }
-.sw.c-r { --fill: var(--red) } .sw.c-y { --fill: var(--yellow) } .sw.c-g { --fill: var(--green) } .sw.c-b { --fill: var(--blue) }
-.flag { color: var(--gold); background: transparent; border: 1px solid var(--gold) }
-.float.plus { --fill: var(--red); background: transparent; color: #fff; isolation: isolate; overflow: hidden }
+/* ===== цветное на canvas (компонент Paint в Card.jsx) =====
+   Элемент painted: заливка/рамка/текст рисуются холстом внутри него.
+   ptext: собственный текст элемента прозрачный — он остаётся для экранных читалок
+   и задаёт размер, а виден текст с холста. Белый текст на тёмном браузер не трогает,
+   поэтому там, где текст белый, оставляем его обычным. */
+.paint { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block }
+.painted { position: relative; isolation: isolate; background: transparent !important; border-color: transparent !important; box-shadow: none !important }
+.painted.ptext { color: transparent !important; text-shadow: none !important }
+.btn.primary.painted:hover:not(:disabled) { filter: brightness(1.08) }
+.sw.painted { border: 0 }
+.sw:hover { filter: brightness(1.08) }
 .float.skip { background: var(--felt-2); color: var(--paper); border: 1.5px solid var(--paper) }
-.float.unos { background: var(--felt-2); color: var(--gold); border: 1.5px solid var(--gold) }
-.unread { --fill: var(--red); background: transparent; position: relative; isolation: isolate; overflow: hidden }
+.float.plus { color: #fff }
+.lbl b.painted, .bigcode.painted { display: inline-block }

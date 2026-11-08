@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGame } from './useGame.js'
-import { Card, CardBack, COLOR_NAME, Fill, cardLabel } from './Card.jsx'
+import { Card, CardBack, COLOR_NAME, GOLD, Glow, HEX, INK, Paint, cardLabel } from './Card.jsx'
 import { ChatPanel } from './Chat.jsx'
 
 const COLOR_VAR = { r: 'var(--red)', y: 'var(--yellow)', g: 'var(--green)', b: 'var(--blue)' }
@@ -82,7 +82,7 @@ function Home({ connected, send }) {
             <input id="name" type="text" maxLength={20} value={name} placeholder="Например, Аня" onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="row">
-            <button className="btn primary" onClick={create} disabled={!connected}>Создать стол</button>
+            <button className="btn primary painted ptext" onClick={create} disabled={!connected}><Paint bg={GOLD} text="Создать стол" color={INK} />Создать стол</button>
           </div>
           <form className="row" onSubmit={join}>
             <input id="code" type="text" maxLength={4} value={code} placeholder="КОД" aria-label="Код стола" autoComplete="off"
@@ -123,7 +123,7 @@ function Lobby({ view, send }) {
       <TopBar view={view} send={send} />
       <div className="wait">
         <p className="note">Код стола</p>
-        <div className="bigcode">{view.code}</div>
+        <div className="bigcode painted ptext"><Paint text={view.code} color={GOLD} />{view.code}</div>
         <div className="share">
           <input type="text" readOnly value={link} aria-label="Ссылка на стол" onFocus={(e) => e.target.select()} />
           <button className="btn small" onClick={copy}>{copied ? 'Скопировано' : 'Копировать'}</button>
@@ -132,7 +132,7 @@ function Lobby({ view, send }) {
         <div className="plist">
           {view.players.map((p, i) => (
             <span key={p.id} className={`pl ${p.online ? '' : 'away'}`}>
-              <span className="dot" style={{ background: SEAT_COLORS[i % SEAT_COLORS.length] }} />
+              <span className="dot painted"><Paint bg={SEAT_COLORS[i % SEAT_COLORS.length]} /></span>
               {p.name}
               {p.id === view.host && <small>хозяин</small>}
               {p.id === view.you && <small>вы</small>}
@@ -148,7 +148,7 @@ function Lobby({ view, send }) {
         {isHost ? (
           <>
             <div className="row center-row">
-              <button className="btn primary" disabled={view.players.length < 2} onClick={() => send({ t: 'start' })}>Раздать карты</button>
+              <button className="btn primary painted ptext" disabled={view.players.length < 2} onClick={() => send({ t: 'start' })}><Paint bg={GOLD} text="Раздать карты" color={INK} />Раздать карты</button>
               <button className="btn" disabled={view.players.length >= 10} onClick={() => send({ t: 'addbot' })}>Добавить бота</button>
             </div>
             {view.players.length < 2 && <p className="note">Ждём друзей. Можно добавить бота, чтобы сыграть прямо сейчас.</p>}
@@ -245,7 +245,11 @@ function useFloats(view, me) {
 
 function Floats({ list }) {
   return list.map((f, i) => (
-    <span key={f.key} className={`float ${f.kind}`} style={{ '--i': i }}>{f.kind === 'plus' && <Fill />}{f.text}</span>
+    <span key={f.key} className={`float ${f.kind}${f.kind === 'skip' ? '' : ' painted'}${f.kind === 'unos' ? ' ptext' : ''}`} style={{ '--i': i }}>
+      {f.kind === 'plus' && <Paint bg={HEX.r.c} />}
+      {f.kind === 'unos' && <Paint bg={GOLD} text={f.text} color={INK} />}
+      {f.text}
+    </span>
   ))
 }
 
@@ -467,10 +471,11 @@ function Table({ view, chat, send }) {
         {opponents.map((p) => p && (
           <div key={p.id} ref={(el) => { seatRefs.current[p.id] = el }}
             className={`seat ${p.id === view.turn && playing ? 'active' : ''} ${p.online ? '' : 'away'}`}>
+            {p.id === view.turn && playing && <Paint ring={GOLD} />}
             {bubbles[p.id] && <span key={bubbles[p.id].id} className="say">{bubbles[p.id].text}</span>}
             <Floats list={floats.filter((f) => f.id === p.id)} />
             <div className="who">
-              <span className="dot" style={{ background: p.color }} />
+              <span className="dot painted"><Paint bg={p.color} /></span>
               <span className="n">{p.name}</span>
               {p.bot && <small>бот</small>}
             </div>
@@ -479,7 +484,7 @@ function Table({ view, chat, send }) {
               <span>{p.count} {plural(p.count, 'карта', 'карты', 'карт')}</span>
             </div>
             {!p.online && <span className="tag">не в сети</span>}
-            {p.count === 1 && <span className="flag">УНОС!</span>}
+            {p.count === 1 && <span className="flag painted ptext"><Paint bg={GOLD} text="УНОС!" color={INK} />УНОС!</span>}
           </div>
         ))}
       </div>
@@ -487,7 +492,11 @@ function Table({ view, chat, send }) {
       <div className="center">
         <button className={`pile ${myTurn && !view.drew ? 'can' : ''} ${myTurn && !view.drew && !anyPlayable ? 'need' : ''}`}
           disabled={!myTurn || view.drew} onClick={() => send({ t: 'draw' })} aria-label="Взять карту из колоды">
-          <div className="stack" ref={deckRef}><CardBack gold={myTurn && !view.drew} /></div>
+          <div className="stack" ref={deckRef}>
+            <span className="under u2"><CardBack /></span>
+            <span className="under u1"><CardBack /></span>
+            <CardBack gold={myTurn && !view.drew} />
+          </div>
           <span>Колода · {view.drawCount}</span>
         </button>
         <div className="dir" aria-label={view.dir === 1 ? 'Ход по часовой' : 'Ход против часовой'}>
@@ -497,12 +506,8 @@ function Table({ view, chat, send }) {
         {view.top && (
           <div className="discard" style={{ '--hc': COLOR_VAR[view.color] }}>
             <div className="halo">
-              {/* свечение цвета — SVG, а не CSS-фон: тёмный режим браузера его не перекрасит */}
-              <svg className="halo-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                <defs><filter id="halo-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7" /></filter></defs>
-                <rect x="12" y="12" width="76" height="76" rx="14" fill="currentColor" opacity=".55" filter="url(#halo-blur)" />
-                <rect x="14" y="14" width="72" height="72" rx="12" fill="currentColor" opacity=".22" />
-              </svg>
+              {/* свечение цвета — на canvas: тёмный режим браузера его не перекрасит */}
+              <Glow color={HEX[view.color]?.c ?? GOLD} />
               <div className="heap" ref={heapRef}>
                 {(view.recent || [view.top]).map((c, i, arr) => {
                   const s = scatter(c.id)
@@ -518,7 +523,7 @@ function Table({ view, chat, send }) {
                 })}
               </div>
             </div>
-            <span className="lbl">Цвет: <b key={view.color} className="pulse">{COLOR_NAME[view.color]}</b></span>
+            <span className="lbl">Цвет: <b key={view.color} className="pulse painted ptext"><Paint text={COLOR_NAME[view.color]} color={HEX[view.color]?.c} />{COLOR_NAME[view.color]}</b></span>
           </div>
         )}
       </div>
@@ -526,7 +531,7 @@ function Table({ view, chat, send }) {
       {playing && (
         <div className="turnline">
           {myTurn
-            ? <div key="mine" className="status mine pop-in">Ваш ход</div>
+            ? <div key="mine" className="status mine pop-in painted ptext"><Paint text="Ваш ход" color={GOLD} />Ваш ход</div>
             : <div key={view.turn} className="status pop-in">Ходит {cur?.name ?? '…'}</div>}
           {warning && <div key={warning} className="warn">{warning}</div>}
           {stuck && (
@@ -542,13 +547,15 @@ function Table({ view, chat, send }) {
 
       <div className="actions">
         {myTurn && hand.length === 2 && anyPlayable && (
-          <button className="btn call has-fill" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
-            <Fill />
+          <button className="btn call painted ptext" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
+            <Paint bg={calling ? GOLD : HEX.r.c} text={calling ? '«УНОС» сказано' : 'УНОС'} color={calling ? INK : '#fff'} />
             {calling ? '«УНОС» сказано' : 'УНОС'}
           </button>
         )}
         {myTurn && view.drew && (
-          <button className={`btn ${warn && !anyPlayable ? 'primary pulse-btn' : ''}`} onClick={() => send({ t: 'pass' })}>Пас</button>
+          <button className={`btn ${warn && !anyPlayable ? 'primary pulse-btn painted ptext' : ''}`} onClick={() => send({ t: 'pass' })}>
+            {warn && !anyPlayable && <Paint bg={GOLD} text="Пас" color={INK} />}Пас
+          </button>
         )}
         {isHost && stuck && cur && (
           <button className="btn ghost small" onClick={() => send({ t: 'skip' })}>Пропустить ход: {cur.name}</button>
@@ -592,8 +599,8 @@ function Table({ view, chat, send }) {
             <h2 id="pickH">Какой цвет заказываете?</h2>
             <div className="swatches">
               {['r', 'y', 'g', 'b'].map((c) => (
-                <button key={c} className={`sw c-${c} has-fill`} onClick={() => playCard(pickCard, c)}>
-                  <Fill />
+                <button key={c} className={`sw c-${c} painted ptext`} onClick={() => playCard(pickCard, c)}>
+                  <Paint bg={HEX[c].c} text={COLOR_NAME[c][0].toUpperCase() + COLOR_NAME[c].slice(1)} color={c === 'y' ? INK : '#fff'} />
                   {COLOR_NAME[c][0].toUpperCase() + COLOR_NAME[c].slice(1)}
                 </button>
               ))}
@@ -616,7 +623,7 @@ function Table({ view, chat, send }) {
             </div>
             <div className="row center-row">
               {isHost
-                ? <button className="btn primary" onClick={() => send({ t: 'start' })}>Ещё партия</button>
+                ? <button className="btn primary painted ptext" onClick={() => send({ t: 'start' })}><Paint bg={GOLD} text="Ещё партия" color={INK} />Ещё партия</button>
                 : <p className="note">Хозяин стола может начать новую партию.</p>}
               <button className="btn ghost" onClick={() => send({ t: 'leave' })}>Встать из-за стола</button>
             </div>

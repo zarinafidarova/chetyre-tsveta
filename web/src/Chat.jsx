@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Fill } from './Card.jsx'
+import { GOLD, HEX, INK, Paint } from './Card.jsx'
 
 const QUICK = ['👍', '😂', '😱', '🔥', 'Ходи уже!', 'Хорошая игра']
 
@@ -87,7 +87,7 @@ export function ChatPanel({ chat, me, colorOf, send }) {
       <form className="chat-form" onSubmit={submit}>
         <input id="chat-input" type="text" maxLength={300} value={text} placeholder="Сообщение…" autoComplete="off"
           onChange={(e) => setText(e.target.value)} aria-label="Сообщение в чат" />
-        <button className="btn primary small" type="submit" disabled={!text.trim()}>Отправить</button>
+        <button className="btn primary small painted ptext" type="submit" disabled={!text.trim()}><Paint bg={GOLD} text="Отправить" color={INK} />Отправить</button>
       </form>
     </section>
   )
@@ -100,7 +100,7 @@ export function ChatPanel({ chat, me, colorOf, send }) {
           <path d="M4 5h16v11H9l-5 4z" />
         </svg>
         Чат
-        {unread > 0 && <span className="unread"><Fill />{unread > 9 ? '9+' : unread}</span>}
+        {unread > 0 && <span className="unread painted"><Paint bg={HEX.r.c} />{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
         <div className="chat-backdrop" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>

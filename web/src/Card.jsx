@@ -1,93 +1,136 @@
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+
 export const COLOR_NAME = { r: 'красный', y: 'жёлтый', g: 'зелёный', b: 'синий' }
 
 /*
-  Карты рисуются целиком в SVG, а не CSS-фонами.
+  Всё цветное в игре рисуется на <canvas>.
 
-  Тёмный режим Samsung Internet и «автозатемнение сайтов» в Android
-  перекрашивают яркие фоны элементов в тёмные (красный #e8474f приезжал
-  почти бордовым, белая рамка — серой) и не дают сайту от этого отказаться.
-  Заливки SVG они не трогают: так же это решено в trainer (коммит cfac546,
-  подсветка блоков в «Корси»). Цвета здесь заданы прямо в атрибутах,
-  без CSS-переменных, чтобы ничего не зависело от стилей страницы.
+  Тёмный режим Samsung Internet и автозатемнение Android перекрашивают страницу
+  при отрисовке, и сайт не может от этого отказаться: color-scheme они
+  игнорируют. Замеры со скриншота Samsung показали, что меняется всё цветное:
+  CSS-фоны (белая рамка карты стала #4c4d52), заливки SVG (синий #3b78e3 стал
+  #003ca7, золото — #664620) и цветной текст («Ваш ход» из #ffd36b стал #86641d).
+  Нетронутыми остаются белый текст, тёмный фон и готовые пиксели canvas:
+  их браузер не раскладывает на «фон» и «текст», а просто показывает.
 */
 
-const HEX = {
+export const HEX = {
   r: { c: '#e8474f', d: '#a8232f' },
   y: { c: '#f6c33b', d: '#9a6200' },
   g: { c: '#2aa56e', d: '#157049' },
   b: { c: '#3b78e3', d: '#1f4aa3' },
   w: { c: '#1d2557', d: '#0e0c22' },
 }
+export const GOLD = '#ffd36b'
+export const INK = '#1a1730'
 const RAINBOW = ['#e8474f', '#f6c33b', '#2aa56e', '#3b78e3']
-const GOLD = '#ffd36b'
-const DISPLAY = { fontFamily: "'Unbounded', 'Arial Black', system-ui, sans-serif", fontWeight: 900 }
+const DISPLAY = "Unbounded, 'Arial Black', system-ui, sans-serif"
+
+/* ---------- шрифты: canvas рисует текст только уже загруженным шрифтом ---------- */
+
+let fontsVersion = 0
+const fontSubs = new Set()
+const bumpFonts = () => { fontsVersion++; fontSubs.forEach((f) => f()) }
+if (typeof document !== 'undefined' && document.fonts) {
+  document.fonts.ready.then(bumpFonts)
+  document.fonts.addEventListener?.('loadingdone', bumpFonts)
+  document.fonts.load(`900 40px ${DISPLAY}`).then(bumpFonts, () => {})
+}
+function useFontsVersion() {
+  return useSyncExternalStore((f) => { fontSubs.add(f); return () => fontSubs.delete(f) }, () => fontsVersion)
+}
+
+/* ---------- общий холст: размер по CSS-размеру, чёткость по плотности экрана ---------- */
+
+function useCanvas(draw, deps) {
+  const ref = useRef(null)
+  const fv = useFontsVersion()
+  useLayoutEffect(() => {
+    const cv = ref.current
+    if (!cv) return
+    const paint = () => {
+      const w = cv.clientWidth
+      const h = cv.clientHeight
+      if (!w || !h) return
+      const dpr = Math.min(window.devicePixelRatio || 1, 3)
+      const W = Math.round(w * dpr)
+      const H = Math.round(h * dpr)
+      if (cv.width !== W) cv.width = W
+      if (cv.height !== H) cv.height = H
+      const ctx = cv.getContext('2d')
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, W, H)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      draw(ctx, w, h, cv)
+    }
+    paint()
+    const ro = new ResizeObserver(paint)
+    ro.observe(cv)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, fv])
+  return ref
+}
 
 /* ---------- значки особых карт, в координатах 24×24 ---------- */
 
-function SkipShape({ color }) {
-  return (
-    <g fill="none" stroke={color} strokeWidth="3" strokeLinecap="round">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M6.6 17.4 17.4 6.6" />
-    </g>
-  )
+const REVERSE = ['M4.5 10.5a7 7 0 0 1 12.2-4.2L19 8.5', 'M19 4v4.5h-4.5', 'M19.5 13.5a7 7 0 0 1-12.2 4.2L5 15.5', 'M5 20v-4.5h4.5']
+const PETAL = 'M12 12C10 9 10.4 4.6 12 2.5 13.6 4.6 14 9 12 12Z'
+
+function rotAbout(ctx, deg, x, y) {
+  ctx.translate(x, y)
+  ctx.rotate((deg * Math.PI) / 180)
+  ctx.translate(-x, -y)
 }
 
-function ReverseShape({ color }) {
-  return (
-    <g fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.5 10.5a7 7 0 0 1 12.2-4.2L19 8.5" />
-      <path d="M19 4v4.5h-4.5" />
-      <path d="M19.5 13.5a7 7 0 0 1-12.2 4.2L5 15.5" />
-      <path d="M5 20v-4.5h4.5" />
-    </g>
-  )
+function drawShape(ctx, v, color) {
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  if (v === 'S') {
+    ctx.strokeStyle = color
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(12, 12, 8, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(6.6, 17.4); ctx.lineTo(17.4, 6.6); ctx.stroke()
+  } else if (v === 'R') {
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2.6
+    for (const d of REVERSE) ctx.stroke(new Path2D(d))
+  } else if (v === 'D') {
+    ctx.fillStyle = color
+    ctx.save(); rotAbout(ctx, -12, 8.5, 12); ctx.globalAlpha = 0.55
+    ctx.beginPath(); ctx.roundRect(3.5, 5, 10, 14, 2.2); ctx.fill(); ctx.restore()
+    ctx.save(); rotAbout(ctx, 10, 15, 11)
+    ctx.beginPath(); ctx.roundRect(10, 4, 10, 14, 2.2); ctx.fill(); ctx.restore()
+  } else if (v === 'F') {
+    ;['#3b78e3', '#2aa56e', '#f6c33b', '#e8474f'].forEach((f, i) => {
+      ctx.save(); rotAbout(ctx, -33 + i * 22, 12, 20)
+      ctx.beginPath(); ctx.roundRect(8, 3.5, 8, 12, 1.8)
+      ctx.fillStyle = f; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke()
+      ctx.restore()
+    })
+  } else if (v === 'W') {
+    RAINBOW.forEach((f, i) => {
+      ctx.save(); rotAbout(ctx, i * 90 + 45, 12, 12)
+      const p = new Path2D(PETAL)
+      ctx.fillStyle = f; ctx.fill(p); ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.stroke(p)
+      ctx.restore()
+    })
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(12, 12, 1.8, 0, Math.PI * 2); ctx.fill()
+  }
 }
-
-// «+2»: две маленькие карты внахлёст
-function PlusTwoShape({ color }) {
-  return (
-    <g fill={color}>
-      <rect x="3.5" y="5" width="10" height="14" rx="2.2" opacity=".55" transform="rotate(-12 8.5 12)" />
-      <rect x="10" y="4" width="10" height="14" rx="2.2" transform="rotate(10 15 11)" />
-    </g>
-  )
-}
-
-// «+4»: веер из четырёх карт всех цветов
-function PlusFourShape() {
-  return (
-    <g>
-      {['#3b78e3', '#2aa56e', '#f6c33b', '#e8474f'].map((f, i) => (
-        <rect key={i} x="8" y="3.5" width="8" height="12" rx="1.8" fill={f} stroke="#fff" strokeWidth="1"
-          transform={`rotate(${-33 + i * 22} 12 20)`} />
-      ))}
-    </g>
-  )
-}
-
-// заказ цвета: четырёхлепестковая звезда
-function WildShape() {
-  return (
-    <g>
-      {RAINBOW.map((f, i) => (
-        <path key={f} d="M12 12C10 9 10.4 4.6 12 2.5 13.6 4.6 14 9 12 12Z" fill={f} stroke="#fff" strokeWidth=".8"
-          transform={`rotate(${i * 90 + 45} 12 12)`} />
-      ))}
-      <circle cx="12" cy="12" r="1.8" fill="#fff" />
-    </g>
-  )
-}
-
-const SHAPES = { S: SkipShape, R: ReverseShape, D: PlusTwoShape, F: PlusFourShape, W: WildShape }
-const SHORT = { S: '⊘', R: '⇄', D: '+2', F: '+4', W: '✦' }
 
 // значок размером size с центром в (cx, cy)
-function Shape({ v, cx, cy, size, color }) {
-  const S = SHAPES[v]
-  const k = size / 24
-  return <g transform={`translate(${cx - size / 2} ${cy - size / 2}) scale(${k})`}><S color={color} /></g>
+function shapeAt(ctx, v, cx, cy, size, color) {
+  ctx.save()
+  ctx.translate(cx - size / 2, cy - size / 2)
+  ctx.scale(size / 24, size / 24)
+  drawShape(ctx, v, color)
+  ctx.restore()
 }
+
+const SHAPES = new Set(['S', 'R', 'D', 'F', 'W'])
+const SHORT = { S: '⊘', R: '⇄', D: '+2', F: '+4', W: '✦' }
 
 export function glyph(card) {
   return SHORT[card.v] ?? card.v
@@ -99,112 +142,194 @@ export function cardLabel(card) {
   return `${COLOR_NAME[card.c]} ${v}`
 }
 
-/* ---------- лицо карты ---------- */
+/* ---------- рисование карты в координатах 100×145 ---------- */
 
-// окно-арка в центре карты (координаты карты 100×145)
-const ARCH = 'M16 125 V56 A34 34 0 0 1 84 56 V113 Q84 125 72 125 H28 Q16 125 16 113 Z'
+// холст чуть больше карты: по краям место под золотую обводку и тень
+const PAD = 5
+const ARCH = new Path2D('M16 125 V56 A34 34 0 0 1 84 56 V113 Q84 125 72 125 H28 Q16 125 16 113 Z')
+
+function text(ctx, str, x, y, size, { fill = '#fff', stroke = null, lw = 0, under = false } = {}) {
+  ctx.font = `900 ${size}px ${DISPLAY}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.lineJoin = 'round'
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeText(str, x, y) }
+  ctx.fillStyle = fill
+  ctx.fillText(str, x, y)
+  if (under) {
+    const w = ctx.measureText(str).width
+    const t = size * 0.07
+    const uy = y + size * 0.1
+    if (stroke) { ctx.fillStyle = stroke; ctx.fillRect(x - w / 2 - lw / 2, uy - lw / 2, w + lw, t + lw) }
+    ctx.fillStyle = fill
+    ctx.fillRect(x - w / 2, uy, w, t)
+  }
+}
+
+function frame(ctx, gold) {
+  if (gold) {
+    ctx.strokeStyle = GOLD
+    ctx.lineWidth = 3.5
+    ctx.beginPath(); ctx.roundRect(-3.5, -3.5, 107, 152, 16); ctx.stroke()
+  }
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,.35)'
+  ctx.shadowBlur = 6
+  ctx.shadowOffsetY = 4
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.roundRect(0, 0, 100, 145, 14); ctx.fill()
+  ctx.restore()
+}
+
+function drawFace(ctx, card, gold) {
+  const { c, d } = HEX[card.c] ?? HEX.w
+  const wild = card.c === 'w'
+  const isNum = !SHAPES.has(card.v)
+  const plus = card.v === 'D' ? '+2' : card.v === 'F' ? '+4' : null
+  const under = card.v === '6' || card.v === '9' // 6 и 9 подчёркнуты, чтобы не путать вверх ногами
+
+  frame(ctx, gold)
+  ctx.fillStyle = c
+  ctx.beginPath(); ctx.roundRect(4.5, 4.5, 91, 136, 10); ctx.fill()
+
+  if (wild) {
+    const g = ctx.createLinearGradient(16, 22, 84, 125)
+    RAINBOW.forEach((f, i) => g.addColorStop(i / 3, f))
+    ctx.fillStyle = '#14112e'; ctx.fill(ARCH)
+    ctx.strokeStyle = g; ctx.lineWidth = 4.5; ctx.stroke(ARCH)
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill(ARCH)
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.6; ctx.stroke(ARCH)
+  }
+
+  if (isNum) {
+    text(ctx, card.v, 50, 103, 52, { fill: d, under })
+    text(ctx, card.v, 50, 100, 52, { fill: '#fff', stroke: d, lw: 3.4, under })
+  } else {
+    const cy = plus ? 77 : 84
+    const size = plus ? 40 : 46
+    if (!wild) shapeAt(ctx, card.v, 50, cy + 3, size, d)
+    shapeAt(ctx, card.v, 50, cy, size, '#fff')
+  }
+  if (plus) {
+    ctx.fillStyle = wild ? GOLD : '#fff'
+    ctx.beginPath(); ctx.roundRect(33, 104, 34, 15, 7.5); ctx.fill()
+    text(ctx, plus, 50, 115.5, 11, { fill: wild ? INK : d })
+  }
+
+  const corner = () => {
+    const t = plus ?? (isNum ? card.v : null)
+    if (t) text(ctx, t, 13, 21, t.length > 1 ? 13 : 17, { fill: '#fff', stroke: d, lw: 3, under })
+    else { shapeAt(ctx, card.v, 13, 15, 15, d); shapeAt(ctx, card.v, 13, 15, 13, '#fff') }
+  }
+  corner()
+  ctx.save(); rotAbout(ctx, 180, 50, 72.5); corner(); ctx.restore()
+}
+
+function drawBack(ctx, gold) {
+  frame(ctx, gold)
+  ctx.fillStyle = '#2b2660'
+  ctx.beginPath(); ctx.roundRect(4.5, 4.5, 91, 136, 10); ctx.fill()
+  const panel = new Path2D()
+  panel.roundRect(10, 10, 80, 125, 7)
+  ctx.fillStyle = '#1f1a4d'; ctx.fill(panel)
+  ctx.save(); ctx.clip(panel)
+  ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 2
+  for (let k = -150; k < 150; k += 7) { ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k + 150, 150); ctx.stroke() }
+  ctx.restore()
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.stroke(panel)
+  RAINBOW.forEach((f, i) => {
+    ctx.strokeStyle = f; ctx.lineWidth = 5.5; ctx.lineCap = 'butt'
+    const a = -Math.PI / 2 + (i * Math.PI) / 2
+    ctx.beginPath(); ctx.arc(50, 72.5, 22, a, a + Math.PI / 2); ctx.stroke()
+  })
+  ctx.fillStyle = '#1a1636'
+  ctx.beginPath(); ctx.arc(50, 72.5, 18.5, 0, Math.PI * 2); ctx.fill()
+  ctx.save(); rotAbout(ctx, 45, 50, 72.5)
+  ;[['#e8474f', 43, 65.5], ['#f6c33b', 50.6, 65.5], ['#3b78e3', 43, 73.1], ['#2aa56e', 50.6, 73.1]].forEach(([f, x, y]) => {
+    ctx.fillStyle = f; ctx.beginPath(); ctx.roundRect(x, y, 6.4, 6.4, 1.4); ctx.fill()
+  })
+  ctx.restore()
+}
+
+function useCardCanvas(paint, deps) {
+  return useCanvas((ctx, w) => {
+    const k = w / (100 + PAD * 2)
+    ctx.scale(k, k)
+    ctx.translate(PAD, PAD)
+    paint(ctx)
+  }, deps)
+}
 
 // gold — золотая обводка вокруг карты (подходящая для хода)
 export function Card({ card, className = '', style, gold = false }) {
-  const { c, d } = HEX[card.c] ?? HEX.w
-  const wild = card.c === 'w'
-  const isNum = !SHAPES[card.v]
-  const plus = card.v === 'D' ? '+2' : card.v === 'F' ? '+4' : null
-  const under = card.v === '6' || card.v === '9' ? 'underline' : undefined // 6 и 9 подчёркнуты, чтобы не путать вверх ногами
-  const cornerText = plus ?? (isNum ? card.v : null)
-  const gid = `rb-${card.id ?? 'x'}-${card.v}`
-
-  const corner = cornerText
-    ? <text x="13" y="21" textAnchor="middle" fontSize={cornerText.length > 1 ? 13 : 17} fill="#fff" stroke={d} strokeWidth="3"
-        strokeLinejoin="round" paintOrder="stroke" textDecoration={under} style={DISPLAY}>{cornerText}</text>
-    : <g><Shape v={card.v} cx={13} cy={15} size={15} color={d} /><Shape v={card.v} cx={13} cy={15} size={13} color="#fff" /></g>
-
+  const ref = useCardCanvas((ctx) => drawFace(ctx, card, gold), [card.c, card.v, gold])
   return (
-    <div className={`card ${wild ? 'wild' : `c-${card.c}`} ${className}`} style={style}>
-      <svg className="card-svg" viewBox="0 0 100 145" aria-hidden="true" focusable="false">
-        {wild && (
-          <defs>
-            <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-              {RAINBOW.map((f, i) => <stop key={f} offset={i / 3} stopColor={f} />)}
-            </linearGradient>
-          </defs>
-        )}
-        {gold && <rect x="-3.5" y="-3.5" width="107" height="152" rx="16" fill="none" stroke={GOLD} strokeWidth="3.5" />}
-        <rect width="100" height="145" rx="14" fill="#fff" />
-        <rect x="4.5" y="4.5" width="91" height="136" rx="10" fill={c} />
-        {wild
-          ? <path d={ARCH} fill="#14112e" stroke={`url(#${gid})`} strokeWidth="4.5" />
-          : <path d={ARCH} fill="#fff" fillOpacity=".16" stroke="#fff" strokeOpacity=".6" strokeWidth="1.6" />}
-
-        {isNum ? (
-          <g style={DISPLAY} textAnchor="middle">
-            <text x="50" y="103" fontSize="52" fill={d} textDecoration={under}>{card.v}</text>
-            <text x="50" y="100" fontSize="52" fill="#fff" stroke={d} strokeWidth="3.4" strokeLinejoin="round" paintOrder="stroke"
-              textDecoration={under}>{card.v}</text>
-          </g>
-        ) : (
-          <g>
-            {!wild && <Shape v={card.v} cx={50} cy={plus ? 80 : 87} size={plus ? 40 : 46} color={d} />}
-            <Shape v={card.v} cx={50} cy={plus ? 77 : 84} size={plus ? 40 : 46} color="#fff" />
-          </g>
-        )}
-        {plus && (
-          <g>
-            <rect x="33" y="104" width="34" height="15" rx="7.5" fill={wild ? GOLD : '#fff'} />
-            <text x="50" y="115.5" textAnchor="middle" fontSize="11" fill={wild ? '#1a1730' : d} style={DISPLAY}>{plus}</text>
-          </g>
-        )}
-
-        {corner}
-        <g transform="rotate(180 50 72.5)">{corner}</g>
-      </svg>
-      <span className="shine" />
+    <div className={`card ${card.c === 'w' ? 'wild' : `c-${card.c}`} ${className}`} style={style}>
+      <canvas ref={ref} className="card-cv" aria-hidden="true" />
     </div>
   )
 }
-
-/* ---------- рубашка ---------- */
 
 // gold — золотая обводка (колода, из которой можно взять карту)
 export function CardBack({ gold = false }) {
-  const r = 22
-  const quarter = (2 * Math.PI * r) / 4
+  const ref = useCardCanvas((ctx) => drawBack(ctx, gold), [gold])
   return (
     <div className="back">
-      <svg className="card-svg" viewBox="0 0 100 145" aria-hidden="true" focusable="false">
-        <defs>
-          <pattern id="back-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="2" height="7" fill="#fff" fillOpacity=".05" />
-          </pattern>
-        </defs>
-        {gold && <rect x="-3.5" y="-3.5" width="107" height="152" rx="16" fill="none" stroke={GOLD} strokeWidth="3.5" />}
-        <rect width="100" height="145" rx="14" fill="#fff" />
-        <rect x="4.5" y="4.5" width="91" height="136" rx="10" fill="#2b2660" />
-        <rect x="10" y="10" width="80" height="125" rx="7" fill="#1f1a4d" stroke="#fff" strokeOpacity=".35" strokeWidth="1" />
-        <rect x="10" y="10" width="80" height="125" rx="7" fill="url(#back-hatch)" />
-        {RAINBOW.map((f, i) => (
-          <circle key={f} cx="50" cy="72.5" r={r} fill="none" stroke={f} strokeWidth="5.5"
-            strokeDasharray={`${quarter} ${quarter * 3}`} strokeDashoffset={-quarter * i} transform="rotate(-90 50 72.5)" />
-        ))}
-        <circle cx="50" cy="72.5" r="18.5" fill="#1a1636" />
-        <g transform="rotate(45 50 72.5)">
-          <rect x="43" y="65.5" width="6.4" height="6.4" rx="1.4" fill="#e8474f" />
-          <rect x="50.6" y="65.5" width="6.4" height="6.4" rx="1.4" fill="#f6c33b" />
-          <rect x="43" y="73.1" width="6.4" height="6.4" rx="1.4" fill="#3b78e3" />
-          <rect x="50.6" y="73.1" width="6.4" height="6.4" rx="1.4" fill="#2aa56e" />
-        </g>
-      </svg>
+      <canvas ref={ref} className="card-cv" aria-hidden="true" />
     </div>
   )
 }
 
-/* ---------- цветная заливка для кнопок и меток ----------
-   Вместо CSS-фона: такую заливку тёмный режим браузера не перекрашивает.
-   Цвет — CSS-переменная --fill у родителя. */
-export function Fill() {
-  return (
-    <svg className="fill" aria-hidden="true" focusable="false" preserveAspectRatio="none" viewBox="0 0 10 10">
-      <rect width="10" height="10" fill="currentColor" />
-    </svg>
-  )
+/* ---------- Paint: цветная заливка, рамка и текст элемента — на canvas ----------
+   Ставится внутрь элемента с классом painted (position: relative).
+   bg — цвет заливки (иначе берётся CSS-переменная --fill элемента),
+   ring — цвет рамки, text/color — надпись и её цвет (иначе --ink, иначе белый).
+   Сам текст элемента остаётся в разметке, но прозрачный: его читают экранные
+   читалки и по нему считается размер, а виден текст с холста. */
+export function Paint({ bg, ring, text: label, color }) {
+  const ref = useCanvas((ctx, w, h, cv) => {
+    const host = cv.parentElement
+    if (!host) return
+    const cs = getComputedStyle(host)
+    const r = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, h / 2, w / 2)
+    const fill = bg ?? (cs.getPropertyValue('--fill').trim() || null)
+    if (fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(0, 0, w, h, r); ctx.fill() }
+    if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(1, 1, w - 2, h - 2, Math.max(0, r - 1)); ctx.stroke() }
+    if (label) {
+      const str = cs.textTransform === 'uppercase' ? label.toUpperCase() : label
+      ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+      if ('letterSpacing' in ctx) ctx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing
+      ctx.fillStyle = color ?? (cs.getPropertyValue('--ink').trim() || '#fff')
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'alphabetic'
+      const m = ctx.measureText(str)
+      // холст покрывает внутреннюю часть элемента (без рамки), центрируем по ней
+      const cx = w / 2 + (parseFloat(cs.letterSpacing) || 0) / 2
+      const cy = h / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2
+      ctx.fillText(str, cx, cy)
+    }
+  }, [bg, ring, label, color])
+  return <canvas ref={ref} className="paint" aria-hidden="true" />
+}
+
+// прежнее имя: заливка цветом из --fill
+export const Fill = () => <Paint />
+
+/* ---------- свечение под сбросом цвета текущей масти ---------- */
+export function Glow({ color }) {
+  const ref = useCanvas((ctx, w, h) => {
+    const m = 20
+    ctx.save()
+    ctx.shadowColor = color
+    ctx.shadowBlur = 26
+    ctx.globalAlpha = 0.55
+    ctx.fillStyle = color
+    ctx.beginPath(); ctx.roundRect(m, m, w - m * 2, h - m * 2, 16); ctx.fill()
+    ctx.restore()
+    ctx.globalAlpha = 0.25
+    ctx.fillStyle = color
+    ctx.beginPath(); ctx.roundRect(m - 4, m - 4, w - (m - 4) * 2, h - (m - 4) * 2, 18); ctx.fill()
+  }, [color])
+  return <canvas ref={ref} className="glow-cv" aria-hidden="true" />
 }
