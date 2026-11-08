@@ -577,7 +577,7 @@ function Table({ view, chat, send }) {
                   style={c.id in arriving ? { '--land': `${arriving[c.id]}ms` } : undefined}
                   disabled={!ok} aria-label={cardLabel(c)} onPointerMove={tilt} onPointerLeave={untilt}
                   onClick={() => (c.c === 'w' ? setPicking(c.id) : playCard(c))}>
-                  <Card card={c} gold={ok} />
+                  <Card card={c} />
                 </button>
               )
             })}
