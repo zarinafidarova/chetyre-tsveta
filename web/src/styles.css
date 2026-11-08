@@ -68,58 +68,21 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px }
 .rules b { color: var(--paper) }
 
-/* ================= карты ================= */
-.card {
-  --c: var(--blue); --d: var(--blue-d); --t: #fff;
+/* ================= карты =================
+   Лицо карты и рубашка рисуются в SVG (Card.jsx). Тёмный режим браузеров на Android
+   перекрашивает CSS-фоны, а заливки SVG не трогает: так же решено в trainer. */
+.card, .back {
   width: var(--cw); height: calc(var(--cw) * 1.45); border-radius: calc(var(--cw) * .14);
-  background: var(--c);
-  box-shadow: inset 0 0 0 calc(var(--cw) * .045) #fff, inset 0 0 0 calc(var(--cw) * .06) rgba(0,0,0,.15), 0 calc(var(--cw) * .06) calc(var(--cw) * .16) rgba(0,0,0,.4);
-  position: relative; color: var(--t); flex: none; user-select: none; overflow: hidden; isolation: isolate;
+  position: relative; flex: none; user-select: none; transition: transform .15s;
+}
+.card-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible;
+  filter: drop-shadow(0 calc(var(--cw) * .05) calc(var(--cw) * .06) rgba(0,0,0,.35));
 }
 .c-r { --c: var(--red); --d: var(--red-d) }
-.c-y { --c: var(--yellow); --d: var(--yellow-d); --t: var(--card-ink) }
+.c-y { --c: var(--yellow); --d: var(--yellow-d) }
 .c-g { --c: var(--green); --d: var(--green-d) }
 .c-b { --c: var(--blue); --d: var(--blue-d) }
-
-/* центральное окно-арка */
-.card .window {
-  position: absolute; inset: 15% 15% 13%; border-radius: 999px 999px calc(var(--cw) * .12) calc(var(--cw) * .12);
-  background: radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.22), rgba(0,0,0,.12));
-  box-shadow: inset 0 0 0 calc(var(--cw) * .02) rgba(255,255,255,.55), inset 0 calc(var(--cw) * .05) calc(var(--cw) * .12) rgba(0,0,0,.18);
-  display: grid; place-items: center;
-}
-.card .face {
-  font-family: var(--display); font-weight: 900; font-size: calc(var(--cw) * .52); line-height: 1; color: #fff;
-  -webkit-text-stroke: calc(var(--cw) * .035) var(--d); paint-order: stroke fill;
-  text-shadow: 0 calc(var(--cw) * .04) 0 var(--d);
-}
-.c-y .face { color: #fff }
-.card .u { text-decoration: underline; text-decoration-thickness: .07em; text-underline-offset: .1em }
-.card .ico { width: calc(var(--cw) * .5); height: calc(var(--cw) * .5); color: #fff; filter: drop-shadow(0 calc(var(--cw) * .03) 0 var(--d)); overflow: visible }
-.card .badge {
-  position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%);
-  font-family: var(--display); font-weight: 900; font-size: calc(var(--cw) * .15); line-height: 1;
-  padding: calc(var(--cw) * .025) calc(var(--cw) * .06); border-radius: 999px; background: #fff; color: var(--d);
-}
-.card .corner { position: absolute; font-family: var(--display); font-weight: 900; font-size: calc(var(--cw) * .15); line-height: 1; color: #fff; z-index: 1 }
-.c-y .corner { color: var(--card-ink) }
-.card .corner .ico { width: calc(var(--cw) * .17); height: calc(var(--cw) * .17); filter: none; color: currentColor }
-.card .tl { left: calc(var(--cw) * .11); top: calc(var(--cw) * .1) }
-.card .br { right: calc(var(--cw) * .11); bottom: calc(var(--cw) * .1); transform: rotate(180deg) }
-
-/* «дикие» карты: тёмная карта со звёздной крошкой и радужной вращающейся рамкой окна */
-.card.wild { --c: #1d2557; --d: #0e0c22; --t: #fff; background: var(--c) }
-.card.wild .window {
-  border: calc(var(--cw) * .045) solid transparent;
-  background: linear-gradient(#1a1636, #1a1636) padding-box,
-              conic-gradient(from var(--spin), var(--red), var(--yellow), var(--green), var(--blue), var(--red)) border-box;
-  box-shadow: 0 0 calc(var(--cw) * .15) rgba(255,255,255,.12);
-  animation: spin 6s linear infinite;
-}
-.card.wild .ico { width: calc(var(--cw) * .48); height: calc(var(--cw) * .48); filter: none }
-.card.wild .badge { background: var(--gold); color: var(--card-ink) }
-.card.wild .corner .ico { width: calc(var(--cw) * .18); height: calc(var(--cw) * .18) }
-@keyframes spin { to { --spin: 360deg } }
 
 /* блик, который скользит за курсором */
 .card .shine {
@@ -130,19 +93,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .hcard:hover .card .shine, .land .card .shine, .fly .card .shine { opacity: 1 }
 .land .card .shine, .fly .card .shine { animation: sweep .7s ease-out .25s backwards }
 @keyframes sweep { from { background-position: 130% 0 } to { background-position: -30% 0; opacity: 0 } }
-
-/* рубашка */
-.back { width: var(--cw); height: calc(var(--cw) * 1.45); border-radius: calc(var(--cw) * .14); flex: none; position: relative;
-  background:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 7px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 7px),
-    radial-gradient(110% 80% at 50% 25%, #3a3380, #1c1846);
-  box-shadow: inset 0 0 0 calc(var(--cw) * .045) #fff, inset 0 0 0 calc(var(--cw) * .09) #2b2660, inset 0 0 0 calc(var(--cw) * .1) rgba(255,255,255,.35), 0 calc(var(--cw) * .06) calc(var(--cw) * .16) rgba(0,0,0,.4);
-  display: grid; place-items: center; transition: transform .15s }
-.back-ring { width: calc(var(--cw) * .56); height: calc(var(--cw) * .56); border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle, #1a1636 58%, transparent 60%), conic-gradient(var(--red), var(--yellow), var(--green), var(--blue), var(--red)) }
-.back .pips { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--cw) * .03); transform: rotate(45deg) }
-.back .pips i { width: calc(var(--cw) * .1); height: calc(var(--cw) * .1); border-radius: 2px; display: block }
 
 /* ================= стол ================= */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px }
@@ -185,11 +135,12 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .pile .stack::before { transform: translate(-6px, 6px) }
 .pile .stack::after { transform: translate(-3px, 3px) }
 .pile .stack .back { z-index: 1 }
-.pile.can .stack .back { box-shadow: inset 0 0 0 calc(var(--cw) * .045) var(--gold), inset 0 0 0 calc(var(--cw) * .09) #2b2660, 0 0 0 4px rgba(255,211,107,.25), 0 6px 14px rgba(0,0,0,.35); animation: nudge 1.6s ease-in-out infinite }
+.pile.can .stack .back { animation: nudge 1.6s ease-in-out infinite }
 .pile.can:hover .stack .back { transform: translateY(-4px) rotate(-2deg) }
 @keyframes nudge { 50% { transform: translateY(-3px) } }
 .discard { display: flex; flex-direction: column; align-items: center; gap: 10px }
-.discard .halo { border-radius: calc(var(--cw) * .24); padding: 10px; background: color-mix(in srgb, var(--hc) 26%, transparent); box-shadow: 0 0 40px color-mix(in srgb, var(--hc) 55%, transparent); transition: background .4s, box-shadow .4s }
+.discard .halo { position: relative; isolation: isolate; padding: 10px }
+.halo-svg { position: absolute; inset: -18px; width: calc(100% + 36px); height: calc(100% + 36px); overflow: visible; z-index: -1; color: var(--hc); transition: color .4s }
 .heap { position: relative; width: var(--cw); height: calc(var(--cw) * 1.45) }
 .heap-card { position: absolute; inset: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) }
 .heap-card.land { animation: land .4s cubic-bezier(.2, 1.3, .4, 1) }
@@ -225,7 +176,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .float { position: absolute; left: 50%; top: -6px; z-index: 6; pointer-events: none; white-space: nowrap;
   font-family: var(--display); font-weight: 900; font-size: 15px; padding: 3px 9px; border-radius: 999px;
   animation: float-up 1.6s ease-out forwards; animation-delay: calc(var(--i) * .15s) }
-.float.plus { background: var(--red); color: #fff }
 .float.skip { background: var(--paper); color: var(--card-ink) }
 .float.unos { background: var(--gold); color: var(--card-ink) }
 @keyframes float-up { 0% { transform: translate(-50%, 10px) scale(.6); opacity: 0 } 15% { transform: translate(-50%, -6px) scale(1.15); opacity: 1 }
@@ -257,7 +207,6 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .hcard.ok { --lift: -16px; z-index: 1 }
 /* неактивные карты не перехватывают нажатия: тап по перекрытой части попадает в подходящую карту */
 .hcard:disabled { pointer-events: none }
-.hcard.ok .card { box-shadow: inset 0 0 0 calc(var(--cw) * .045) #fff, 0 0 0 3px rgba(255,211,107,.85), 0 10px 22px rgba(0,0,0,.45) }
 .hcard.ok:hover { --lift: -24px; z-index: 2 }
 .hcard.no .card { filter: saturate(.7) brightness(.72) }
 .hand.waiting .hcard { --lift: 12px }
@@ -323,8 +272,7 @@ label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color
 .sheet h2 { font-family: var(--display); font-size: 20px; margin: 0; text-wrap: balance }
 .win-card { display: flex; justify-content: center; --cw: 72px }
 .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
-.sw { border: 0; border-radius: 14px; height: 72px; font-weight: 800; font-size: 15px; color: #fff; box-shadow: inset 0 0 0 3px rgba(255,255,255,.85) }
-.sw.c-r { background: var(--red) } .sw.c-y { background: var(--yellow); color: var(--card-ink) } .sw.c-g { background: var(--green) } .sw.c-b { background: var(--blue) }
+.sw { border: 3px solid rgba(255,255,255,.85); border-radius: 14px; height: 72px; font-weight: 800; font-size: 15px }
 .sw:hover { filter: brightness(1.08) }
 .scores { display: flex; flex-direction: column; gap: 6px; text-align: left }
 .scores div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--felt-2); font-variant-numeric: tabular-nums }
@@ -387,3 +335,20 @@ body:has(#app.on-table) { overscroll-behavior: none }
 @keyframes arrive { from { opacity: 0 } }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important } }
+
+/* ===== цветные заливки через SVG (компонент Fill): их тёмный режим браузера не перекрашивает ===== */
+.fill { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; color: var(--fill); pointer-events: none }
+.has-fill { position: relative; isolation: isolate; overflow: hidden; background: transparent }
+/* главная кнопка: золотой текст и рамка на тёмном — светлый текст на тёмном фоне браузер не трогает */
+.btn.primary { background: var(--felt-2); color: var(--gold); border-color: var(--gold) }
+.btn.primary:hover:not(:disabled) { background: var(--line) }
+.btn.call { --fill: var(--red); background: transparent; border-color: var(--red); color: #fff }
+.btn.call[aria-pressed="true"] { background: var(--felt-2); border-color: var(--gold); color: var(--gold) }
+.btn.call[aria-pressed="true"] .fill { display: none }
+.sw { background: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45) }
+.sw.c-r { --fill: var(--red) } .sw.c-y { --fill: var(--yellow) } .sw.c-g { --fill: var(--green) } .sw.c-b { --fill: var(--blue) }
+.flag { color: var(--gold); background: transparent; border: 1px solid var(--gold) }
+.float.plus { --fill: var(--red); background: transparent; color: #fff; isolation: isolate; overflow: hidden }
+.float.skip { background: var(--felt-2); color: var(--paper); border: 1.5px solid var(--paper) }
+.float.unos { background: var(--felt-2); color: var(--gold); border: 1.5px solid var(--gold) }
+.unread { --fill: var(--red); background: transparent; position: relative; isolation: isolate; overflow: hidden }

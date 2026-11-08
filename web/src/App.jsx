@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGame } from './useGame.js'
-import { Card, CardBack, COLOR_NAME, cardLabel } from './Card.jsx'
+import { Card, CardBack, COLOR_NAME, Fill, cardLabel } from './Card.jsx'
 import { ChatPanel } from './Chat.jsx'
 
 const COLOR_VAR = { r: 'var(--red)', y: 'var(--yellow)', g: 'var(--green)', b: 'var(--blue)' }
@@ -245,7 +245,7 @@ function useFloats(view, me) {
 
 function Floats({ list }) {
   return list.map((f, i) => (
-    <span key={f.key} className={`float ${f.kind}`} style={{ '--i': i }}>{f.text}</span>
+    <span key={f.key} className={`float ${f.kind}`} style={{ '--i': i }}>{f.kind === 'plus' && <Fill />}{f.text}</span>
   ))
 }
 
@@ -487,7 +487,7 @@ function Table({ view, chat, send }) {
       <div className="center">
         <button className={`pile ${myTurn && !view.drew ? 'can' : ''} ${myTurn && !view.drew && !anyPlayable ? 'need' : ''}`}
           disabled={!myTurn || view.drew} onClick={() => send({ t: 'draw' })} aria-label="Взять карту из колоды">
-          <div className="stack" ref={deckRef}><CardBack /></div>
+          <div className="stack" ref={deckRef}><CardBack gold={myTurn && !view.drew} /></div>
           <span>Колода · {view.drawCount}</span>
         </button>
         <div className="dir" aria-label={view.dir === 1 ? 'Ход по часовой' : 'Ход против часовой'}>
@@ -497,6 +497,12 @@ function Table({ view, chat, send }) {
         {view.top && (
           <div className="discard" style={{ '--hc': COLOR_VAR[view.color] }}>
             <div className="halo">
+              {/* свечение цвета — SVG, а не CSS-фон: тёмный режим браузера его не перекрасит */}
+              <svg className="halo-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <defs><filter id="halo-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7" /></filter></defs>
+                <rect x="12" y="12" width="76" height="76" rx="14" fill="currentColor" opacity=".55" filter="url(#halo-blur)" />
+                <rect x="14" y="14" width="72" height="72" rx="12" fill="currentColor" opacity=".22" />
+              </svg>
               <div className="heap" ref={heapRef}>
                 {(view.recent || [view.top]).map((c, i, arr) => {
                   const s = scatter(c.id)
@@ -536,7 +542,8 @@ function Table({ view, chat, send }) {
 
       <div className="actions">
         {myTurn && hand.length === 2 && anyPlayable && (
-          <button className="btn call" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
+          <button className="btn call has-fill" aria-pressed={calling} onClick={() => setCalling((c) => !c)}>
+            <Fill />
             {calling ? '«УНОС» сказано' : 'УНОС'}
           </button>
         )}
@@ -563,7 +570,7 @@ function Table({ view, chat, send }) {
                   style={c.id in arriving ? { '--land': `${arriving[c.id]}ms` } : undefined}
                   disabled={!ok} aria-label={cardLabel(c)} onPointerMove={tilt} onPointerLeave={untilt}
                   onClick={() => (c.c === 'w' ? setPicking(c.id) : playCard(c))}>
-                  <Card card={c} />
+                  <Card card={c} gold={ok} />
                 </button>
               )
             })}
@@ -585,7 +592,8 @@ function Table({ view, chat, send }) {
             <h2 id="pickH">Какой цвет заказываете?</h2>
             <div className="swatches">
               {['r', 'y', 'g', 'b'].map((c) => (
-                <button key={c} className={`sw c-${c}`} onClick={() => playCard(pickCard, c)}>
+                <button key={c} className={`sw c-${c} has-fill`} onClick={() => playCard(pickCard, c)}>
+                  <Fill />
                   {COLOR_NAME[c][0].toUpperCase() + COLOR_NAME[c].slice(1)}
                 </button>
               ))}

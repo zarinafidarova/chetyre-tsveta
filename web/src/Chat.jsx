@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Fill } from './Card.jsx'
 
 const QUICK = ['👍', '😂', '😱', '🔥', 'Ходи уже!', 'Хорошая игра']
 
@@ -99,7 +100,7 @@ export function ChatPanel({ chat, me, colorOf, send }) {
           <path d="M4 5h16v11H9l-5 4z" />
         </svg>
         Чат
-        {unread > 0 && <span className="unread">{unread > 9 ? '9+' : unread}</span>}
+        {unread > 0 && <span className="unread"><Fill />{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
         <div className="chat-backdrop" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
